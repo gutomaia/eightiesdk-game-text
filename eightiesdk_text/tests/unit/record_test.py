@@ -9,7 +9,7 @@ encodes, still decodes to SOMETHING, and points into nowhere.
 from dataclasses import dataclass
 from unittest import TestCase
 
-from eightiesdk_text.record import encode
+from eightiesdk_text.record import TooManyGlyphs, encode
 from eightiesdk_text.tests.record_spec import RecordTableSpec
 
 
@@ -39,7 +39,46 @@ class RecordTableBinding(RecordTableSpec):
         self.assertEqual(count, self.table.count)
 
     def assert_alphabet(self, characters):
-        self.assertEqual(list(characters), list(self.table.alphabet))
+        self.assertEqual(sorted(characters), sorted(self.table.alphabet))
+
+    def assert_commonest_character_is_first(self, character):
+        self.assertEqual(character, self.table.alphabet[0])
+
+    def assert_encoded_width_of(self, index, field, width):
+        offset = self.table.offset_of(index, field)
+        end = self.table.pool.index(0xFF, offset)
+        self.assertEqual(width, end - offset)
+
+    def given_records_over_the_one_byte_alphabet(self):
+        # 'A' is far and away the commonest, so it takes index 0.
+        # The rare four appear ONCE each and sort after every
+        # filler, so they land past the direct range — which is
+        # what makes them cost two bytes. Ties break on the
+        # character, so this is deterministic rather than lucky.
+        filler = [chr(0x4E00 + n) for n in range(300)]
+        self.RARE = ''.join(chr(0x9F00 + n) for n in range(4))
+        self.records = [
+            Question('AAAA', ['AA'], 0),
+            Question(self.RARE, ['AA'], 0),
+        ] + [
+            Question(''.join(filler[n : n + 6]), ['AA'], 0)
+            for n in range(0, 300, 6)
+        ]
+
+    def given_records_over_every_code(self):
+        filler = [chr(0x4E00 + n) for n in range(600)]
+        self.records = [
+            Question(''.join(filler[n : n + 6]), ['A'], 0)
+            for n in range(0, 600, 6)
+        ]
+
+    def when_encoding_is_refused(self):
+        with self.assertRaises(TooManyGlyphs) as caught:
+            encode(self.records, endian=self.endian)
+        self.refusal = caught.exception
+
+    def assert_refusal_names_the_limit(self):
+        self.assertIn('510', str(self.refusal))
 
     def assert_text_of(self, index, field, text):
         self.assertEqual(text, self.table.read_text(index, field))

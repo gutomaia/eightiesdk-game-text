@@ -33,11 +33,17 @@ from dataclasses import fields
 OFFSET = 2  # a 16-bit offset into the pool
 COUNT = 1  # a one-byte length for a sequence
 TERMINATOR = 0xFF
+#: A rare character is written as this byte and then its position
+#: past the one-byte range. Two reserved bytes leave 254 codes for
+#: the common tier and 256 in the escaped one.
+ESCAPE = 0xFE
+DIRECT = 0xFE  # codes 0x00..0xFD are written as themselves
+WIDEST = DIRECT + 256
 
 
 class TooManyGlyphs(Exception):
-    """The content uses more distinct characters than a one-byte
-    index can name."""
+    """The content uses more distinct characters than the code can
+    name, even with the escaped tier."""
 
 
 class RecordTable:
@@ -76,10 +82,17 @@ class RecordTable:
         return self.records[self._at(index, field)]
 
     def _text_at(self, offset):
-        end = self.pool.index(TERMINATOR, offset)
-        return ''.join(
-            self.alphabet[byte] for byte in self.pool[offset:end]
-        ), end + 1
+        out = []
+        at = offset
+        while self.pool[at] != TERMINATOR:
+            byte = self.pool[at]
+            if byte == ESCAPE:
+                out.append(self.alphabet[DIRECT + self.pool[at + 1]])
+                at += 2
+            else:
+                out.append(self.alphabet[byte])
+                at += 1
+        return ''.join(out), at + 1
 
     def read_text(self, index, field):
         return self._text_at(self.offset_of(index, field))[0]
@@ -109,13 +122,28 @@ def _text_fields(record_type):
 
 
 def _alphabet_of(records, record_type):
-    used = set()
+    """The characters used, COMMONEST FIRST.
+
+    Frequency order is what keeps everyday text at one byte per
+    character: only the first 254 fit the direct code, and past
+    that a character costs an escape and a second byte.
+    Alphabetical order would put common and rare characters in the
+    same lottery and widen ordinary words for no reason.
+
+    Ties break on the character itself so the same content always
+    encodes to the same bytes — a build that changed its ROM when
+    nothing changed would be impossible to diff.
+    """
+    counts = {}
     for record in records:
         for name, many in _text_fields(record_type):
             value = getattr(record, name)
             for text in value if many else [value]:
-                used.update(text)
-    return ''.join(sorted(used))
+                for character in text:
+                    counts[character] = counts.get(character, 0) + 1
+    return ''.join(
+        sorted(counts, key=lambda c: (-counts[c], c))
+    )
 
 
 def encode(records, endian):
@@ -124,12 +152,19 @@ def encode(records, endian):
         raise ValueError('a record table needs at least one record')
     record_type = type(records[0])
     alphabet = _alphabet_of(records, record_type)
-    if len(alphabet) > 256:
+    if len(alphabet) > WIDEST:
         raise TooManyGlyphs(
-            f'{len(alphabet)} distinct characters; a one-byte index '
-            f'names 256'
+            f'{len(alphabet)} distinct characters; the code names '
+            f'{WIDEST} — {DIRECT} directly and 256 more behind an '
+            f'escape'
         )
     index_of = {char: n for n, char in enumerate(alphabet)}
+
+    def code(character):
+        index = index_of[character]
+        if index < DIRECT:
+            return [index]
+        return [ESCAPE, index - DIRECT]
 
     pool = bytearray()
     stored = {}
@@ -141,7 +176,8 @@ def encode(records, endian):
         if text in stored:
             return stored[text]
         at = len(pool)
-        pool.extend(index_of[c] for c in text)
+        for character in text:
+            pool.extend(code(character))
         pool.append(TERMINATOR)
         stored[text] = at
         return at
