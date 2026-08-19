@@ -21,21 +21,39 @@ class FontSpec:
     Implementations must supply a font that defines exactly two
     characters:
 
-      'F'  one cell, drawn as NARROW below
+      'F'  ONE CELL WIDE, TWO TALL, drawn as NARROW below
       'W'  two by two cells, drawn as WIDE below
+
+    THE HEIGHT IS THE CONSTANT AND THE WIDTH IS THE VARIABLE, which
+    is the shape real mixed-script text takes: a Latin letter is
+    8x16 and a Hangul syllable is 16x16, so both are TWO CELLS TALL
+    and a line of text is two tile rows however it is written. A
+    font that modelled Latin as a single 8x8 cell would agree with
+    the SDK's built-in alphabet and disagree with typography.
 
     and defines nothing for 'z'. Both drawings use '.' for an
     unset pixel and 'X' for a set one, top row first.
     """
 
+    # 8x16: one cell wide, two tall. The two cells differ and
+    # neither is empty, so a top/bottom mix-up is detectable —
+    # the same reason WIDE has four distinct quadrants.
     NARROW = (
-        'XXXXXXX.',
-        'X.......',
-        'X.......',
-        'XXXXXX..',
-        'X.......',
-        'X.......',
-        'X.......',
+        '........',
+        '.XXXXXX.',
+        '.X......',
+        '.X......',
+        '.X......',
+        '.XXXXX..',
+        '.X......',
+        '.X......',
+        '.X......',
+        '.X......',
+        '.X......',
+        '.X......',
+        '.X......',
+        '.X......',
+        '........',
         '........',
     )
 
@@ -101,12 +119,30 @@ class FontSpec:
 
         self.assert_cell(0, rows_of(self.NARROW, 0, 0))
 
-    def test_a_narrow_glyph_is_a_single_cell(self):
+    def test_a_narrow_glyph_is_one_cell_wide_and_two_tall(self):
         self.given_font()
 
         self.when_glyph_for('F')
 
-        self.assert_cell_shape(columns=1, rows=1)
+        self.assert_cell_shape(columns=1, rows=2)
+
+    def test_a_narrow_glyph_reads_top_cell_then_bottom(self):
+        self.given_font()
+
+        self.when_glyph_for('F')
+
+        self.assert_cell(0, rows_of(self.NARROW, 0, 0))
+        self.assert_cell(1, rows_of(self.NARROW, 0, 1))
+
+    def test_every_glyph_is_the_same_height(self):
+        """Mixed-script text sits on one baseline: a line is two
+        tile rows whether it is Latin or Hangul."""
+        self.given_font()
+
+        self.when_glyph_for('F')
+        self.assert_cell_shape(columns=1, rows=2)
+        self.when_glyph_for('W')
+        self.assert_cell_shape(columns=2, rows=2)
 
     def test_a_wide_glyph_is_two_cells_by_two(self):
         self.given_font()

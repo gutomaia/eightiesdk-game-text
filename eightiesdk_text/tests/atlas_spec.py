@@ -14,8 +14,8 @@ class AtlasSpec:
 
     Implementations must supply an atlas over a font defining:
 
-      'F'  one cell
-      'W'  two cells by two
+      'F'  one cell wide, two tall  (a Latin letter, 8x16)
+      'W'  two cells by two         (a Hangul syllable, 16x16)
 
     built over a slot space of CAPACITY tiles, with slot 0
     reserved — a console needs one honestly blank tile and the
@@ -62,12 +62,12 @@ class AtlasSpec:
     def assert_refusal_mentions_capacity(self):
         raise NotImplementedError()
 
-    def test_a_one_cell_glyph_claims_one_slot(self):
+    def test_a_narrow_glyph_claims_a_slot_for_each_of_its_two_cells(self):
         self.given_atlas()
 
         self.when_claiming('F')
 
-        self.assert_slot_count(1)
+        self.assert_slot_count(2)
 
     def test_a_two_by_two_glyph_claims_a_slot_for_every_cell(self):
         self.given_atlas()

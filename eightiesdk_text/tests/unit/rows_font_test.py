@@ -11,7 +11,13 @@ class RowsFontTest(FontSpec, TestCase):
     def given_font(self):
         self.font = Font(
             {
-                'F': Glyph([rows_of(self.NARROW, 0, 0)], columns=1),
+                'F': Glyph(
+                    [
+                        rows_of(self.NARROW, 0, 0),
+                        rows_of(self.NARROW, 0, 1),
+                    ],
+                    columns=1,
+                ),
                 'W': Glyph(
                     [
                         rows_of(self.WIDE, 0, 0),
