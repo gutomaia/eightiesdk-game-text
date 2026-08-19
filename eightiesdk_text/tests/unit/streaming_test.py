@@ -17,10 +17,24 @@ GAP = '''
 ........
 ........
 '''
+#: two cells wide and two tall, like a Hangul syllable
+BLOCK = '''
+XXXXXXXXXXXXXXXX
+XXXXXXXX........
+XXXXXXXXXXXXXXXX
+XXXXXXXX........
+XXXXXXXXXXXXXXXX
+XXXXXXXX........
+XXXXXXXXXXXXXXXX
+XXXXXXXX........
+XXXXXXXXXXXXXXXX
+'''
 
 
 def _font():
-    return Font.from_art({'a': BAR, 'b': DOT, ' ': GAP})
+    return Font.from_art(
+        {'a': BAR, 'b': DOT, ' ': GAP, 'W': BLOCK}
+    )
 
 
 class StreamingPlanTest(TestCase):
@@ -30,60 +44,76 @@ class StreamingPlanTest(TestCase):
     questions on a NES: 454 distinct cells against a 256-tile
     table.
 
-    One question screen uses 47 to 119 of those cells. The table
-    is a WORKING SET, so a cartridge can hold every glyph in ROM
-    and upload what the screen in front of the player needs.
+    The worst question screen shows 41 distinct characters, which
+    is 164 tiles of 256. The table is a WORKING SET, so a cartridge
+    holds every glyph in ROM and uploads what the screen needs.
+
+    SHARED IN ROM, NOT IN VRAM: sharing is the difference between
+    fitting two 4KB banks and not (3,632 bytes against 10,944), and
+    in VRAM it is the difference between two numbers that both fit.
+    So the store deduplicates and the screen keeps a uniform
+    stride, whose tile number a console can compute.
     """
 
-    def test_a_screen_numbers_its_own_slots_from_the_bottom(self):
-        _store, screens = plan(_font(), ['ab'])
-
-        self.assertEqual([(1,), (2,)], screens[0].grid)
-
-    def test_slot_zero_is_left_alone(self):
-        """A console clears its name table to zero and draws that
-        tile in every gap. A screen's first cell landing there
-        would show through all of them."""
-        _store, screens = plan(_font(), ['a'])
-
-        self.assertNotIn(0, screens[0].upload_slots())
-
-    def test_two_screens_number_independently(self):
-        """THE WHOLE POINT. Each screen's slots start again, so a
-        name-table byte only ever has to hold that screen's count
-        — never the cartridge's."""
-        _store, screens = plan(_font(), ['a', 'b'])
-
-        self.assertEqual(screens[0].grid, screens[1].grid)
-        self.assertNotEqual(screens[0].upload, screens[1].upload)
-
     def test_the_store_keeps_a_shared_cell_once(self):
-        """ROM traded for VRAM: a cell forty screens use is kept
-        once and copied forty times."""
-        store, screens = plan(_font(), ['ab', 'ba'])
+        """THE HALF THAT MATTERS. A cell forty screens use is kept
+        once — which is what puts a whole corpus in two banks."""
+        store, _screens = plan(_font(), ['ab', 'ba'])
 
         self.assertEqual(2, len(store))
-        self.assertEqual(2, screens[0].slots)
-        self.assertEqual(2, screens[1].slots)
 
-    def test_a_repeated_character_costs_one_slot(self):
+    def test_a_screen_keeps_its_own_character_order(self):
+        _store, screens = plan(_font(), ['ab', 'ba'])
+
+        self.assertEqual(('a', 'b'), screens[0].characters)
+        self.assertEqual(('b', 'a'), screens[1].characters)
+
+    def test_a_tile_number_is_arithmetic_and_not_a_lookup(self):
+        """The reason the stride is uniform: a console multiplies
+        an ordinal and adds. A shared VRAM layout would make it
+        read a table per cell, and both fit 256 anyway."""
+        _store, screens = plan(_font(), ['ab'], stride=4)
+
+        self.assertEqual(0, screens[0].tile('a'))
+        self.assertEqual(4, screens[0].tile('b'))
+        self.assertEqual(6, screens[0].tile('b', quadrant=2))
+
+    def test_a_narrow_character_still_costs_the_stride(self):
+        """It buys free arithmetic, and it is a real cost: a space
+        takes four tiles in a four-tile script."""
+        _store, screens = plan(_font(), ['a b'], stride=4)
+
+        self.assertEqual(3 * 4, screens[0].tiles)
+
+    def test_a_repeated_character_is_uploaded_once(self):
         _store, screens = plan(_font(), ['aaaa'])
 
-        self.assertEqual(1, screens[0].slots)
+        self.assertEqual(('a',), screens[0].characters)
 
-    def test_newlines_survive_so_a_grid_stays_a_grid(self):
-        _store, screens = plan(_font(), ['a\nb'])
+    def test_a_wide_glyph_keeps_its_cells_in_reading_order(self):
+        store, screens = plan(_font(), ['W'])
 
-        self.assertIn('\n', screens[0].grid)
-
-    def test_the_upload_is_in_slot_order(self):
-        """The crust copies them one after another, so the list IS
-        the order — a plan that needed sorting would be a plan the
-        crust had to understand."""
-        store, screens = plan(_font(), ['ab'])
-
-        first = screens[0]
+        cells = screens[0].cells[0]
+        self.assertEqual(4, len(cells))
         self.assertEqual(
-            [store[index] for index in first.upload],
-            [_font().glyph('a').cells[0], _font().glyph('b').cells[0]],
+            [store[index] for index in cells],
+            list(_font().glyph('W').cells),
         )
+
+    def test_a_glyph_wider_than_the_stride_is_refused(self):
+        """Its last cells would be drawn from the next character's
+        tiles — a screen of neighbours' halves, which reads as
+        corruption rather than as a stride too small."""
+        with self.assertRaises(ValueError) as caught:
+            plan(_font(), ['W'], stride=2)
+
+        message = str(caught.exception)
+        self.assertIn('4', message)
+        self.assertIn('2', message)
+
+    def test_reserved_tiles_are_left_alone(self):
+        """A console that clears its name table to zero draws that
+        tile in every gap a screen does not write."""
+        _store, screens = plan(_font(), ['a'], reserved=1)
+
+        self.assertEqual(1, screens[0].tile('a'))

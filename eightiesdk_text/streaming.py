@@ -6,82 +6,103 @@ boot, and it is why a Korean quiz measured out at eighteen
 questions on a NES: 454 distinct cells against a 256-tile pattern
 table.
 
-THE PATTERN TABLE IS A WORKING SET. One question screen uses 47 to
-119 cells — under half the table even at its worst — so a
-cartridge can hold every glyph in ROM and upload only what the
-screen in front of the player needs.
+THE PATTERN TABLE IS A WORKING SET. Measured on a real corpus, the
+worst question screen shows 41 distinct characters — 164 tiles of
+256 at four apiece. So a cartridge can hold every glyph in ROM and
+upload only what the screen in front of the player needs, which
+moves the bound from the pattern table to ROM. ROM is what banking
+is for.
 
-That changes what bounds a game. Resident tiles bound it by the
-PATTERN TABLE; streamed tiles bound it by ROM, and ROM is what
-banking is for.
+SHARED IN ROM, NOT IN VRAM, and the two halves are decided by
+different numbers:
 
-WHAT THIS PRODUCES for each screen:
-  - a grid naming LOCAL slots, 0 upward, which is what the name
-    table stores and what fits one byte;
-  - the global cells to copy into those slots, in order.
+    in ROM, 1bpp at 8 bytes a cell
+        61 questions unshared   10,944 bytes   over two 4KB banks
+        61 questions shared      3,632 bytes   under half a bank
+    in VRAM
+        worst screen unshared      164 tiles   fits 256
+        worst screen shared        119 tiles   also fits
 
-The global store is shared: a cell used by forty screens is kept
-once and copied forty times. That is the trade — ROM for VRAM —
-and it is only worth making because the copy is cheap and the
-table is small.
+  Sharing is the difference between fitting two banks and not. In
+  VRAM it is the difference between two numbers that both fit, and
+  it costs a per-screen slot table where a UNIFORM STRIDE is free
+  arithmetic: character c owns tiles c*stride, which a console can
+  compute without looking anything up.
+
+  So the store deduplicates and the screen does not. A cell forty
+  screens use is kept once and copied wherever each screen wants
+  it.
 """
 
 
 class Streamed:
-    """One screen's local numbering and its upload list."""
+    """One screen's characters and where their cells come from."""
 
-    def __init__(self, grid, upload, reserved=1):
-        self.grid = grid
-        self._reserved = reserved
-        #: global cell indices, in the order local slots use them
-        self.upload = tuple(upload)
+    def __init__(self, characters, cells, stride, reserved):
+        #: the screen's characters, in the order it uploads them
+        self.characters = tuple(characters)
+        #: per character, the store indices of its cells
+        self.cells = tuple(cells)
+        self.stride = stride
+        self.reserved = reserved
 
-    def upload_slots(self):
-        """The local slots this screen writes into."""
-        return tuple(range(self._reserved, self._reserved + len(self.upload)))
+    def tile(self, character, quadrant=0):
+        """The tile number this screen draws `character` with.
+
+        FREE ARITHMETIC, which is the point of the uniform stride:
+        the console multiplies an ordinal and adds, where a shared
+        layout would make it read a table per cell.
+        """
+        return (
+            self.reserved
+            + self.characters.index(character) * self.stride
+            + quadrant
+        )
 
     @property
-    def slots(self):
-        return len(self.upload)
+    def tiles(self):
+        return len(self.characters) * self.stride
 
     def __repr__(self):
-        return f'<Streamed {self.slots} cells>'
+        return f'<Streamed {len(self.characters)} characters>'
 
 
-def plan(font, screens, reserved=1):
+def plan(font, screens, stride=4, reserved=0):
     """Every screen's working set over one shared cell store.
 
-    `screens` is a sequence of texts. Returns (store, streamed):
-    `store` is every distinct cell the screens use, and each
-    `Streamed` names its own slots from `reserved` upward.
+    `screens` is a sequence of texts. Returns (store, streamed).
+    The store holds each DISTINCT cell once; a screen names its
+    characters in upload order and each keeps the store indices of
+    its own cells, in reading order.
 
-    SLOT ZERO IS LEFT ALONE by default, because a console that
-    clears its name table to zero draws that tile everywhere a
-    screen does not write — and a screen's first cell landing
-    there would show through every gap.
+    `stride` is how many tiles a character is given whatever it
+    needs — four for a script whose widest glyph is two cells by
+    two. Uniform on purpose: it costs a narrow character two empty
+    tiles and buys a tile number a console can compute.
     """
     store = []
     known = {}
     streamed = []
     for text in screens:
-        local = {}
-        upload = []
-        grid = []
-        for character in text:
+        characters = []
+        cells = []
+        for character in dict.fromkeys(text):
             if character == '\n':
-                grid.append('\n')
                 continue
-            cells = font.glyph(character).cells
-            for cell in cells:
+            glyph = font.glyph(character)
+            if len(glyph.cells) > stride:
+                raise ValueError(
+                    f'{character!r} needs {len(glyph.cells)} cells and '
+                    f'the stride is {stride}: its last cells would be '
+                    f'drawn from the next character'
+                )
+            indices = []
+            for cell in glyph.cells:
                 if cell not in known:
                     known[cell] = len(store)
                     store.append(cell)
-                index = known[cell]
-                if index not in local:
-                    local[index] = len(upload) + reserved
-                    upload.append(index)
-            grid.append(
-                tuple(local[known[cell]] for cell in cells)
-            )
-        streamed.append(Streamed(grid, upload, reserved))
+                indices.append(known[cell])
+            characters.append(character)
+            cells.append(tuple(indices))
+        streamed.append(Streamed(characters, cells, stride, reserved))
     return tuple(store), tuple(streamed)
