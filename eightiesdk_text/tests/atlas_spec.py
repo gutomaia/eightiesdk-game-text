@@ -22,11 +22,12 @@ class AtlasSpec:
     fleet's crusts already zero tile 0 for it.
 
     WHAT THIS CONTRACT DOES NOT PROMISE, and the omission is the
-    point: that a glyph's slots are CONSECUTIVE. Letting two
-    identical cells share one slot is worth about half of a real
-    glyph table, and a contract promising adjacency could never
-    adopt it. Examples ask where the cells went, never where they
-    went in relation to each other.
+    point: that a glyph's slots are CONSECUTIVE. IDENTICAL CELLS
+    SHARE ONE SLOT — measured at two thirds of the cells in a real
+    Korean glyph table, because syllables share their strokes — so
+    a glyph's slots are wherever its cells already were. Examples
+    ask where the cells went, never where they went in relation to
+    each other.
     """
 
     CAPACITY = 8
@@ -60,6 +61,25 @@ class AtlasSpec:
         raise NotImplementedError()
 
     def assert_refusal_mentions_capacity(self):
+        raise NotImplementedError()
+
+    def when_claiming_a_glyph_whose_cells_are_all_present(self):
+        """Fill the atlas to its last slot, then claim a character
+        whose cells have all been claimed already."""
+        raise NotImplementedError()
+
+    def assert_it_was_not_refused(self):
+        raise NotImplementedError()
+
+    def when_claiming_two_glyphs_sharing_a_cell(self):
+        """Claim two different characters whose drawings have one
+        cell in common."""
+        raise NotImplementedError()
+
+    def assert_shared_cell_uploaded_once(self):
+        raise NotImplementedError()
+
+    def assert_shared_slot_appears_in_both(self):
         raise NotImplementedError()
 
     def test_a_narrow_glyph_claims_a_slot_for_each_of_its_two_cells(self):
@@ -105,6 +125,34 @@ class AtlasSpec:
         self.when_claiming('W')
 
         self.assert_reserved_slot_untouched(0)
+
+    def test_two_glyphs_sharing_a_cell_share_its_slot(self):
+        self.given_atlas()
+
+        self.when_claiming_two_glyphs_sharing_a_cell()
+
+        self.assert_shared_slot_appears_in_both()
+
+    def test_a_shared_cell_is_uploaded_once(self):
+        """The saving is real only if the tile is stored once as
+        well as named twice."""
+        self.given_atlas()
+
+        self.when_claiming_two_glyphs_sharing_a_cell()
+
+        self.assert_shared_cell_uploaded_once()
+
+    def test_a_glyph_costs_only_its_unseen_cells(self):
+        """With the atlas full to its last slot, a character whose
+        cells are all already there still fits — it needs none.
+        Counting a glyph's cells instead of its NEW ones would
+        refuse a character the tile memory already holds, which is
+        the failure sharing exists to prevent."""
+        self.given_atlas()
+
+        self.when_claiming_a_glyph_whose_cells_are_all_present()
+
+        self.assert_it_was_not_refused()
 
     def test_running_out_of_slots_is_refused_by_name(self):
         self.given_atlas()

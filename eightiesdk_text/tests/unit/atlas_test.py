@@ -22,12 +22,20 @@ class AtlasTest(AtlasSpec, TestCase):
         self.slots = self.atlas.claim(character)
 
     def when_claiming_until_full(self):
-        # eight slots, one reserved: 'W' takes four, so a second
-        # 'W'-sized glyph cannot fit. Distinct drawings, because
-        # a repeat would reuse rather than allocate.
-        crowd = Font.from_art(
+        # Eight slots, one reserved: a 2x2 glyph takes four, so the
+        # second cannot fit. EVERY CELL MUST BE DISTINCT — cells
+        # are shared now, so four copies of one drawing would cost
+        # four slots between them and never run out. Earlier this
+        # binding used the same drawing four times and stopped
+        # proving anything the moment sharing landed.
+        from eightiesdk_text.font import Glyph
+
+        crowd = Font(
             {
-                chr(0x41 + n): '\n'.join(FontSpec.WIDE)
+                chr(0x41 + n): Glyph(
+                    [(n * 4 + k + 1,) * 8 for k in range(4)],
+                    columns=2,
+                )
                 for n in range(4)
             }
         )
@@ -55,6 +63,60 @@ class AtlasTest(AtlasSpec, TestCase):
 
     def assert_upload_slot_count(self, count):
         self.assertEqual(count, len(self.atlas.upload))
+
+    def when_claiming_a_glyph_whose_cells_are_all_present(self):
+        from eightiesdk_text.font import Glyph
+
+        # capacity 8, one reserved: 'A' takes all seven remaining
+        # slots, so nothing NEW can fit. 'B' is drawn from the very
+        # same cells in a different order.
+        cells = [(n + 1,) * 8 for n in range(7)]
+        font = Font(
+            {
+                'A': Glyph(cells, columns=7),
+                'B': Glyph(list(reversed(cells)), columns=7),
+            }
+        )
+        self.atlas = Atlas(font, capacity=self.CAPACITY, reserved=1)
+        self.atlas.claim('A')
+        self.refused = None
+        try:
+            self.slots = self.atlas.claim('B')
+        except OutOfSlots as error:
+            self.refused = error
+
+    def assert_it_was_not_refused(self):
+        self.assertIsNone(self.refused, str(self.refused))
+        self.assertEqual(7, len(self.atlas.upload))
+
+    def when_claiming_two_glyphs_sharing_a_cell(self):
+        from eightiesdk_text.font import Glyph
+
+        top = FontSpec.rows_of if False else None
+        # two 1x2 glyphs whose BOTTOM cell is identical and whose
+        # top cell is not — the shape a stem-sharing script makes
+        stem = (0x18,) * 8
+        font = Font(
+            {
+                'P': Glyph([(0x7C,) * 8, stem], columns=1),
+                'Q': Glyph([(0x3E,) * 8, stem], columns=1),
+            }
+        )
+        self.atlas = Atlas(font, capacity=self.CAPACITY, reserved=1)
+        self.first = self.atlas.claim('P')
+        self.second = self.atlas.claim('Q')
+        self.shared = stem
+
+    def assert_shared_slot_appears_in_both(self):
+        common = set(self.first) & set(self.second)
+        self.assertEqual(1, len(common), (self.first, self.second))
+        slot = common.pop()
+        self.assertEqual(self.shared, self.atlas.upload[slot])
+
+    def assert_shared_cell_uploaded_once(self):
+        stored = list(self.atlas.upload.values())
+        self.assertEqual(1, stored.count(self.shared))
+        self.assertEqual(3, len(self.atlas.upload))
 
     def assert_refusal_mentions_capacity(self):
         self.assertIn(str(self.CAPACITY), str(self.refusal))
