@@ -9,6 +9,13 @@ packages = [{ include = "eightiesdk_text" }]
 
 [tool.poetry.dependencies]
 python = "^3.12"
+# render.py imports PIL to draw a glyph from a typeface. It was
+# declared NOWHERE — this file had no runtime dependencies at all
+# — and the suite was green because Pillow happened to be in a
+# hand-assembled venv and the one example that touches the render
+# path is wrapped in skipUnless(PILLOW). A fresh install of this
+# package raised ImportError the first time anyone drew a glyph.
+pillow = "^12.3"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.1"
