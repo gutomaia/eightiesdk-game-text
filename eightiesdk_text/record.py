@@ -54,8 +54,7 @@ class RecordTable:
     """
 
     def __init__(
-        self, records, pool, alphabet, layout, record_size, endian,
-        tables=b''
+        self, records, pool, alphabet, layout, record_size, endian, tables=b''
     ):
         self.records = records
         self.pool = pool
@@ -74,9 +73,7 @@ class RecordTable:
 
     def offset_of(self, index, field):
         at = self._at(index, field)
-        return int.from_bytes(
-            self.records[at : at + OFFSET], self.endian
-        )
+        return int.from_bytes(self.records[at : at + OFFSET], self.endian)
 
     def read_int(self, index, field):
         return self.records[self._at(index, field)]
@@ -141,9 +138,7 @@ def _alphabet_of(records, record_type):
             for text in value if many else [value]:
                 for character in text:
                     counts[character] = counts.get(character, 0) + 1
-    return ''.join(
-        sorted(counts, key=lambda c: (-counts[c], c))
-    )
+    return ''.join(sorted(counts, key=lambda c: (-counts[c], c)))
 
 
 def encode(records, endian):
@@ -230,6 +225,11 @@ def encode(records, endian):
                 body.append(value)
 
     return RecordTable(
-        bytes(body), bytes(pool), alphabet, layout, size, endian,
+        bytes(body),
+        bytes(pool),
+        alphabet,
+        layout,
+        size,
+        endian,
         bytes(tables),
     )

@@ -24,7 +24,9 @@ class ArtFontTest(FontSpec, TestCase):
         self.refusal = caught.exception
 
     def assert_cell_shape(self, columns, rows):
-        self.assertEqual((columns, rows), (self.glyph.columns, self.glyph.rows))
+        self.assertEqual(
+            (columns, rows), (self.glyph.columns, self.glyph.rows)
+        )
 
     def assert_cell(self, index, rows):
         self.assertEqual(rows, self.glyph.cells[index])

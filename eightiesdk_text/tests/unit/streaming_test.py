@@ -32,9 +32,7 @@ XXXXXXXXXXXXXXXX
 
 
 def _font():
-    return Font.from_art(
-        {'a': BAR, 'b': DOT, ' ': GAP, 'W': BLOCK}
-    )
+    return Font.from_art({'a': BAR, 'b': DOT, ' ': GAP, 'W': BLOCK})
 
 
 class StreamingPlanTest(TestCase):

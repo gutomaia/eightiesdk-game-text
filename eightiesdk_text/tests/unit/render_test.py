@@ -25,9 +25,7 @@ UNIFONT = (
 @skipUnless(PILLOW, 'Pillow not installed')
 @skipUnless(UNIFONT.exists(), 'GNU Unifont not available')
 class UnifontRenderTest(RenderFontSpec, TestCase):
-    LATIN_ONLY = Path(
-        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
-    )
+    LATIN_ONLY = Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')
 
     def given_renderer(self):
         self.typeface = UNIFONT
@@ -46,9 +44,7 @@ class UnifontRenderTest(RenderFontSpec, TestCase):
         self.refusal = caught.exception
 
     def assert_characters(self, characters):
-        self.assertEqual(
-            sorted(set(characters)), sorted(self.font.characters)
-        )
+        self.assertEqual(sorted(set(characters)), sorted(self.font.characters))
 
     def assert_shape_of(self, character, columns, rows):
         glyph = self.font.glyph(character)
@@ -68,9 +64,7 @@ class UnifontRenderTest(RenderFontSpec, TestCase):
         # slice the drawing here, independently of the renderer
         face = ImageFont.truetype(str(self.typeface), size=16)
         image = Image.new('1', (glyph.columns * 8, 16), 0)
-        ImageDraw.Draw(image).text(
-            (0, 0), character, fill=1, font=face
-        )
+        ImageDraw.Draw(image).text((0, 0), character, fill=1, font=face)
         pixels = image.load()
 
         def cell(column, row):

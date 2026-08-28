@@ -46,15 +46,11 @@ def render(typeface, text, body=BODY):
     from PIL import Image, ImageDraw, ImageFont
 
     face = ImageFont.truetype(str(typeface), size=body)
-    undrawable, _ = _draw(
-        NONCHARACTER, face, body, Image, ImageDraw
-    )
+    undrawable, _ = _draw(NONCHARACTER, face, body, Image, ImageDraw)
     glyphs = {}
     missing = []
     for character in sorted(set(text)):
-        cells, columns = _draw(
-            character, face, body, Image, ImageDraw
-        )
+        cells, columns = _draw(character, face, body, Image, ImageDraw)
         if not character.isspace() and cells == undrawable:
             # EVERY missing character, not the first. A face that
             # lacks one character of a script lacks the script,

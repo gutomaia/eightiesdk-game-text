@@ -90,9 +90,7 @@ class RecordTableBinding(RecordTableSpec):
         self.assertEqual(texts, self.table.read_texts(index, 'alternatives'))
 
     def assert_repeated_text_stored_once(self, text):
-        encoded = bytes(
-            self.table.alphabet.index(c) for c in text
-        )
+        encoded = bytes(self.table.alphabet.index(c) for c in text)
         self.assertEqual(
             1,
             self.table.pool.count(encoded),
@@ -106,7 +104,8 @@ class RecordTableBinding(RecordTableSpec):
         where = self.table.pool.index(encoded)
         expected = where.to_bytes(2, self.endian)
         self.assertNotEqual(
-            expected[0], expected[1],
+            expected[0],
+            expected[1],
             f'offset {where} reads the same in both byte orders, '
             f'so {text!r} cannot prove this rule',
         )
