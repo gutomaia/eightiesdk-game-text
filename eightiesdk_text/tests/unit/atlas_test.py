@@ -92,7 +92,6 @@ class AtlasTest(AtlasSpec, TestCase):
     def when_claiming_two_glyphs_sharing_a_cell(self):
         from eightiesdk_text.font import Glyph
 
-        top = FontSpec.rows_of if False else None
         # two 1x2 glyphs whose BOTTOM cell is identical and whose
         # top cell is not — the shape a stem-sharing script makes
         stem = (0x18,) * 8
