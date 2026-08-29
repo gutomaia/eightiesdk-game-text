@@ -105,6 +105,20 @@ files = [
 ]
 
 [[package]]
+name = "eightiesdk-fitness"
+version = "0.1.0"
+description = "Eighties SDK architecture fitness contracts: reusable specs a package binds to prove things about its own build, environment and guards."
+optional = false
+python-versions = "^3.12"
+groups = ["dev"]
+files = []
+develop = true
+
+[package.source]
+type = "directory"
+url = "../eightiesdk-fitness"
+
+[[package]]
 name = "flake8"
 version = "7.3.0"
 description = "the modular source code checker: pep8 pyflakes and co"
@@ -588,4 +602,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "fbea0dbd7e9998780aac1a84b83e3e78fc005e53795c31ac3a4f7103ec9966a6"
+content-hash = "10a12597468187e2cbadafca0f2720a7be3254cbbf741c615e4a947cbfe8ba09"
