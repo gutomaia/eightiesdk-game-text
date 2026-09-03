@@ -1,6 +1,5 @@
 """Python binding for the text contribution contract."""
 
-import ast
 import tomllib
 from dataclasses import dataclass
 from importlib.metadata import entry_points
@@ -17,12 +16,6 @@ from eightiesdk_game_text.tests.contribution_spec import (
 PACKAGE_ROOT = Path(eightiesdk_game_text.__file__).parent
 GROUP = 'eightiesdk.game_extensions'
 ADAPTER = 'eightiesdk_game_text.contribution:contribute_text'
-FORBIDDEN = (
-    'eightiesdk_platform',
-    'eightiesdk_runtime',
-    'eightiesdk_game_hud',
-    'quiz',
-)
 
 
 @dataclass
@@ -180,26 +173,6 @@ class TextContributionTest(TextContributionSpec, TestCase):
     def assert_text_announces_the_contribution_adapter(self):
         self.assertEqual({'text': ADAPTER}, self.declared)
         self.assertEqual({'text': ADAPTER}, self.installed)
-
-    def assert_the_contributor_imports_no_platform_or_runtime(self):
-        found = []
-        for module in ('contribution.py', 'declarations.py'):
-            path = PACKAGE_ROOT / module
-            tree = ast.parse(path.read_text(encoding='utf-8'))
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Import):
-                    names = [alias.name for alias in node.names]
-                elif isinstance(node, ast.ImportFrom):
-                    names = [node.module or '']
-                else:
-                    continue
-                for name in names:
-                    if any(
-                        name == banned or name.startswith(banned + '.')
-                        for banned in FORBIDDEN
-                    ):
-                        found.append(f'{module}:{node.lineno} {name}')
-        self.assertEqual([], found)
 
 
 __all__ = ['TextContributionTest']

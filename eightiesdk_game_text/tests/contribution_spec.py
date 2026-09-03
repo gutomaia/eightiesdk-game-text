@@ -64,9 +64,6 @@ class TextContributionSpec:
     def assert_text_announces_the_contribution_adapter(self):
         raise NotImplementedError()
 
-    def assert_the_contributor_imports_no_platform_or_runtime(self):
-        raise NotImplementedError()
-
     def test_a_text_store_costs_exactly_its_encoded_bytes(self):
         self.given_records_with_text_fields()
         self.given_a_target('nes')
@@ -119,9 +116,6 @@ class TextContributionSpec:
         self.when_package_metadata_is_read()
 
         self.assert_text_announces_the_contribution_adapter()
-
-    def test_the_contributor_imports_no_platform_or_runtime(self):
-        self.assert_the_contributor_imports_no_platform_or_runtime()
 
 
 __all__ = ['TextContributionSpec']

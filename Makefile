@@ -81,3 +81,13 @@ ${MAKEFILE_SCRIPT_PATH}/${MAKERY_SCRIPT}:
 		${GH_WGET} ${MAKERY_BASE_URL}/${MAKERY_SCRIPT} && \
 		touch ${MAKERY_SCRIPT}
 	${CHECK}
+
+.PHONY: architecture-test
+
+## architecture-test: production modules import no platform, runtime,
+## sibling extension or product. The runtime discovers this package by
+## entry point; an import back would invert that.
+## PARSED, NOT GREPPED: a grep fired on a docstring that named a
+## product, and would have stayed silent on a quiet removal.
+architecture-test:
+	. venv/bin/activate; py.test -q eightiesdk_game_text/tests/unit/architecture_test.py
