@@ -2,7 +2,7 @@
 
 An atlas assigns every character a slot and expects them all to be
 resident. That is right for a game whose tiles upload once at
-boot, and it is why a Korean quiz measured out at eighteen
+boot, and it is why a Korean text game measured out at eighteen
 questions on a NES: 454 distinct cells against a 256-tile pattern
 table.
 
