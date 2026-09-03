@@ -9,8 +9,8 @@ encodes, still decodes to SOMETHING, and points into nowhere.
 from dataclasses import dataclass
 from unittest import TestCase
 
-from eightiesdk_text.record import TooManyGlyphs, encode
-from eightiesdk_text.tests.record_spec import RecordTableSpec
+from eightiesdk_game_text.record import TooManyGlyphs, encode
+from eightiesdk_game_text.tests.record_spec import RecordTableSpec
 
 
 @dataclass

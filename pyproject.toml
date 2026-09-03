@@ -1,11 +1,11 @@
 [tool.poetry]
-name = "eightiesdk-text"
+name = "eightiesdk-game-text"
 version = "0.1.0"
 description = "Eighties SDK text: fonts a game brings itself, as glyph grids a console crust can expand into any colour depth."
 authors = ["Guto Maia <guto@guto.net>"]
 license = "BSD-3-Clause"
 readme = "README.md"
-packages = [{ include = "eightiesdk_text" }]
+packages = [{ include = "eightiesdk_game_text" }]
 
 [tool.poetry.dependencies]
 python = "^3.12"

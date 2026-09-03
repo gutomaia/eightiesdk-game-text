@@ -3,8 +3,8 @@ that rendered them from a real typeface delivers one."""
 
 from unittest import TestCase
 
-from eightiesdk_text.font import Font, Glyph, UndefinedGlyph
-from eightiesdk_text.tests.font_spec import FontSpec, rows_of
+from eightiesdk_game_text.font import Font, Glyph, UndefinedGlyph
+from eightiesdk_game_text.tests.font_spec import FontSpec, rows_of
 
 
 class RowsFontTest(FontSpec, TestCase):

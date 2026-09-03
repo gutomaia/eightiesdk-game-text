@@ -3,8 +3,8 @@
 from pathlib import Path
 from unittest import TestCase, skipUnless
 
-from eightiesdk_text.render import MissingGlyph, render
-from eightiesdk_text.tests.render_spec import RenderFontSpec
+from eightiesdk_game_text.render import MissingGlyph, render
+from eightiesdk_game_text.tests.render_spec import RenderFontSpec
 
 try:
     import PIL  # noqa: F401

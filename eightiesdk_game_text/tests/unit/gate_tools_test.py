@@ -8,13 +8,13 @@ from the makefiles, and the positive control live in
 from pathlib import Path
 from unittest import TestCase
 
-import eightiesdk_text
+import eightiesdk_game_text
 from eightiesdk_fitness.gate_tools_spec import GateToolsSpec
 
 
 class TextGateToolsTest(GateToolsSpec, TestCase):
     def package_root(self):
-        return Path(eightiesdk_text.__file__).parent
+        return Path(eightiesdk_game_text.__file__).parent
 
 
 __all__ = ['TextGateToolsTest']

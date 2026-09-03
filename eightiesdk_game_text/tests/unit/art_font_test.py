@@ -2,8 +2,8 @@
 
 from unittest import TestCase
 
-from eightiesdk_text.font import Font, UndefinedGlyph
-from eightiesdk_text.tests.font_spec import FontSpec
+from eightiesdk_game_text.font import Font, UndefinedGlyph
+from eightiesdk_game_text.tests.font_spec import FontSpec
 
 
 class ArtFontTest(FontSpec, TestCase):

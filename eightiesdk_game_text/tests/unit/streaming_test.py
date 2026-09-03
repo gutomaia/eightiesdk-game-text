@@ -2,8 +2,8 @@
 
 from unittest import TestCase
 
-from eightiesdk_text.font import Font
-from eightiesdk_text.streaming import plan
+from eightiesdk_game_text.font import Font
+from eightiesdk_game_text.streaming import plan
 
 BAR = '''
 XXXXXXXX

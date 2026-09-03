@@ -1,4 +1,4 @@
-# eightiesdk-text
+# eightiesdk-game-text
 
 Fonts for the Eighties SDK.
 
@@ -13,7 +13,7 @@ Glyph sizes are per glyph, not per font: a Latin letter is one cell,
 a Hangul syllable is two by two.
 
 ```python
-from eightiesdk_text.font import Font
+from eightiesdk_game_text.font import Font
 
 font = Font.from_art({'?': '''
 .XXXX...
@@ -29,5 +29,5 @@ font.glyph('?').cells      # one 8-tuple of row bytes
 font.glyph('!')            # UndefinedGlyph: named, never silently blank
 ```
 
-The contract lives in `eightiesdk_text/tests/font_spec.py`; any new way
+The contract lives in `eightiesdk_game_text/tests/font_spec.py`; any new way
 of building a font proves itself by subclassing it.

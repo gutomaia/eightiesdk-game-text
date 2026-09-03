@@ -1,11 +1,11 @@
 PLATFORM = $(shell uname)
 
-PROJECT_NAME=eightiesdk-text
+PROJECT_NAME=eightiesdk-game-text
 PROJECT_TAG?=8sdk
 PUBLIC_PROJECT=true
 GITHUB_DOMAIN=github.com
 GITHUB_TOKEN?=must be present on your env.mk, create in github at setting/user developer/external token with repo scope
-GITHUB_PROJECT=gutomaia/eightiesdk-text
+GITHUB_PROJECT=gutomaia/eightiesdk-game-text
 MAKEFILE_SCRIPT_PATH=extras/makefiles
 MAKERY_REPOSITORY=gutomaia/makery
 MAKERY_SCRIPT=gutonet.mk
@@ -13,7 +13,7 @@ MAKERY_DEFAULT_TASK=default_makery
 MAKERY_BASE_URL=https://raw.githubusercontent.com/${MAKERY_REPOSITORY}/master
 
 PYTHON_VERSION?=3.12
-PYTHON_MODULES=eightiesdk_text
+PYTHON_MODULES=eightiesdk_game_text
 
 IGNORE_ERRORS=W503,E203
 FLAKE8_ARGS=--ignore=${IGNORE_ERRORS} --per-file-ignores=\*/__init__.py\:F401,F403

@@ -17,7 +17,7 @@ to BUILD a font and never to use one, so a project that ships
 pre-rendered glyphs carries no imaging dependency.
 """
 
-from eightiesdk_text.font import CELL, Font, Glyph
+from eightiesdk_game_text.font import CELL, Font, Glyph
 
 BODY = 16  # the em size these glyphs are drawn at
 HEIGHT_CELLS = BODY // CELL

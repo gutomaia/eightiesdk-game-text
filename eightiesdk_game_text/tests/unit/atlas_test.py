@@ -1,9 +1,9 @@
 from unittest import TestCase
 
-from eightiesdk_text.atlas import Atlas, OutOfSlots
-from eightiesdk_text.font import Font
-from eightiesdk_text.tests.atlas_spec import AtlasSpec
-from eightiesdk_text.tests.font_spec import FontSpec
+from eightiesdk_game_text.atlas import Atlas, OutOfSlots
+from eightiesdk_game_text.font import Font
+from eightiesdk_game_text.tests.atlas_spec import AtlasSpec
+from eightiesdk_game_text.tests.font_spec import FontSpec
 
 
 class AtlasTest(AtlasSpec, TestCase):
@@ -28,7 +28,7 @@ class AtlasTest(AtlasSpec, TestCase):
         # four slots between them and never run out. Earlier this
         # binding used the same drawing four times and stopped
         # proving anything the moment sharing landed.
-        from eightiesdk_text.font import Glyph
+        from eightiesdk_game_text.font import Glyph
 
         crowd = Font(
             {
@@ -65,7 +65,7 @@ class AtlasTest(AtlasSpec, TestCase):
         self.assertEqual(count, len(self.atlas.upload))
 
     def when_claiming_a_glyph_whose_cells_are_all_present(self):
-        from eightiesdk_text.font import Glyph
+        from eightiesdk_game_text.font import Glyph
 
         # capacity 8, one reserved: 'A' takes all seven remaining
         # slots, so nothing NEW can fit. 'B' is drawn from the very
@@ -90,7 +90,7 @@ class AtlasTest(AtlasSpec, TestCase):
         self.assertEqual(7, len(self.atlas.upload))
 
     def when_claiming_two_glyphs_sharing_a_cell(self):
-        from eightiesdk_text.font import Glyph
+        from eightiesdk_game_text.font import Glyph
 
         # two 1x2 glyphs whose BOTTOM cell is identical and whose
         # top cell is not — the shape a stem-sharing script makes
