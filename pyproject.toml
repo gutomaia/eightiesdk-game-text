@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "eightiesdk-game-text"
 version = "0.1.0"
-description = "Eighties SDK text: fonts a game brings itself, as glyph grids a console crust can expand into any colour depth."
+description = "Eighties SDK text extension: text stored by address, glyphs kept only for the text that uses them, rendered into any surface a game names."
 authors = ["Guto Maia <guto@guto.net>"]
 license = "BSD-3-Clause"
 readme = "README.md"
@@ -9,6 +9,12 @@ packages = [{ include = "eightiesdk_game_text" }]
 
 [tool.poetry.dependencies]
 python = "^3.12"
+# THE EXTENSION'S TWO NEIGHBOURS AND NOTHING ELSE. The game nouns it
+# may reference, and the neutral claim records it publishes through.
+# No platform, no runtime: the runtime discovers this package by
+# entry point and must never be imported back.
+eightiesdk-game = { path = "../eightiesdk-game", develop = true }
+eightiesdk-resources = { path = "../eightiesdk-resources", develop = true }
 # render.py imports PIL to draw a glyph from a typeface. It was
 # declared NOWHERE — this file had no runtime dependencies at all
 # — and the suite was green because Pillow happened to be in a
@@ -27,6 +33,9 @@ eightiesdk-fitness = { path = "../eightiesdk-fitness", develop = true }
 [tool.black]
 line-length = 79
 skip-string-normalization = true
+
+[tool.poetry.plugins."eightiesdk.game_extensions"]
+text = "eightiesdk_game_text.contribution:contribute_text"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

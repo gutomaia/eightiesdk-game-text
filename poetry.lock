@@ -119,6 +119,34 @@ type = "directory"
 url = "../eightiesdk-fitness"
 
 [[package]]
+name = "eightiesdk-game"
+version = "0.1.0"
+description = "Eighties SDK game abstractions: the nouns a game is made of — Level today, Enemy and physics next — with no knowledge of consoles, tooling, or how a game is read."
+optional = false
+python-versions = "^3.12"
+groups = ["main"]
+files = []
+develop = true
+
+[package.source]
+type = "directory"
+url = "../eightiesdk-game"
+
+[[package]]
+name = "eightiesdk-resources"
+version = "0.1.0"
+description = "Eighties SDK resource contracts: what a strategy costs, what a console affords, and the resolver that picks between strategies for the game in hand."
+optional = false
+python-versions = "^3.12"
+groups = ["main"]
+files = []
+develop = true
+
+[package.source]
+type = "directory"
+url = "../eightiesdk-resources"
+
+[[package]]
 name = "flake8"
 version = "7.3.0"
 description = "the modular source code checker: pep8 pyflakes and co"
@@ -602,4 +630,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "10a12597468187e2cbadafca0f2720a7be3254cbbf741c615e4a947cbfe8ba09"
+content-hash = "1f293f926fe792d20771f5ed117ec0cffa85588790e5a22e81a0262182a961df"
