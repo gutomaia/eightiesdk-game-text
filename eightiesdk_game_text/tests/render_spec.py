@@ -77,6 +77,47 @@ class RenderFontSpec:
     def assert_refusal_names(self, character):
         raise NotImplementedError()
 
+    def given_a_display_height(self, pixels):
+        """Render at a taller body than the 16-pixel default, as a
+        title face is: the height is the typeface's, not the
+        fleet's."""
+        raise NotImplementedError()
+
+    def when_rendering_is_refused_for_the_height(self, text):
+        raise NotImplementedError()
+
+    def test_a_display_face_keeps_its_measured_width(self):
+        """WIDTH IS MEASURED, NOT CAPPED. Unifont's W advances 8
+        pixels at 16, so 24 at 48: three cells, six tall. The first
+        renderer capped every glyph at two cells wide because
+        nothing wider than a Hangul syllable had been asked for,
+        and a display face's wide letters would have been clipped
+        without a word."""
+        self.given_renderer()
+        self.given_a_display_height(48)
+
+        self.when_rendering('W')
+
+        self.assert_shape_of('W', columns=3, rows=6)
+
+    def test_a_syllable_at_a_display_height_stays_square(self):
+        self.given_renderer()
+        self.given_a_display_height(32)
+
+        self.when_rendering(self.HANGUL)
+
+        self.assert_shape_of('백', columns=4, rows=4)
+
+    def test_a_height_that_is_not_whole_cells_is_refused(self):
+        """20 pixels is two cells and a half; truncating to two
+        would cut the descenders off silently."""
+        self.given_renderer()
+        self.given_a_display_height(20)
+
+        self.when_rendering_is_refused_for_the_height('A')
+
+        self.assert_refusal_names('20')
+
     def test_every_requested_character_is_rendered(self):
         self.given_renderer()
 

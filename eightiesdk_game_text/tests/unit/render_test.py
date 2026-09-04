@@ -29,18 +29,28 @@ class UnifontRenderTest(RenderFontSpec, TestCase):
 
     def given_renderer(self):
         self.typeface = UNIFONT
+        self.body = 16
+
+    def given_a_display_height(self, pixels):
+        self.body = pixels
 
     def given_a_typeface_that_cannot_write_the_script(self):
         if not self.LATIN_ONLY.exists():
             self.skipTest('no Latin-only face to prove refusal with')
         self.typeface = self.LATIN_ONLY
+        self.body = 16
 
     def when_rendering(self, text):
-        self.font = render(self.typeface, text)
+        self.font = render(self.typeface, text, body=self.body)
 
     def when_rendering_is_refused_for(self, text):
         with self.assertRaises(MissingGlyph) as caught:
-            render(self.typeface, text)
+            render(self.typeface, text, body=self.body)
+        self.refusal = caught.exception
+
+    def when_rendering_is_refused_for_the_height(self, text):
+        with self.assertRaises(ValueError) as caught:
+            render(self.typeface, text, body=self.body)
         self.refusal = caught.exception
 
     def assert_characters(self, characters):

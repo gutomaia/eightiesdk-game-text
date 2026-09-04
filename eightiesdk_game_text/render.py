@@ -42,9 +42,19 @@ class MissingGlyph(Exception):
 
 
 def render(typeface, text, body=BODY):
-    """A Font holding one glyph per distinct character in `text`."""
+    """A Font holding one glyph per distinct character in `text`.
+
+    `body` is the height in pixels and must be whole cells: a
+    height of 20 is two cells and a half, and rounding it down
+    would cut every descender off silently.
+    """
     from PIL import Image, ImageDraw, ImageFont
 
+    if body % CELL:
+        raise ValueError(
+            f'a body of {body} pixels is not whole cells of {CELL}: '
+            f'the bottom {body % CELL} rows would be cut off'
+        )
     face = ImageFont.truetype(str(typeface), size=body)
     undrawable, _ = _draw(NONCHARACTER, face, body, Image, ImageDraw)
     glyphs = {}
@@ -97,6 +107,13 @@ def _columns(character, face, body):
     point: a font is what knows whether a character is wide, and
     a table of Unicode ranges maintained here would be a second
     opinion drifting away from the first.
+
+    NOT CAPPED. The first version stopped at two cells because
+    nothing wider than a Hangul syllable had been asked for, and
+    a display face at 48 pixels would have had its W clipped to
+    sixteen pixels without a word. Whether a surface can carry a
+    glyph this wide is the renderer's refusal to make, later, with
+    the surface in hand.
     """
     advance = face.getlength(character)
-    return max(1, min(2, -int(-advance // CELL)))
+    return max(1, -int(-advance // CELL))
