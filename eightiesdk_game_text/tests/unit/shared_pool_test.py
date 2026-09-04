@@ -141,7 +141,7 @@ class SharedPoolTest(SharedPoolSpec, TestCase):
         return [
             claim
             for claim in self.state.resource_claims
-            if claim.resource == 'cartridge/rom_payload_bytes'
+            if claim.resource == 'rom_payload_bytes'
         ]
 
     def assert_the_first_claim_spends(self, size):

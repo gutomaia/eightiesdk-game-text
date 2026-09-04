@@ -176,7 +176,7 @@ class GlyphStoreTest(GlyphStoreSpec, TestCase):
         glyph_claims = [
             claim
             for claim in self.state.resource_claims
-            if claim.resource == 'cartridge/rom_payload_bytes'
+            if claim.resource == 'rom_payload_bytes'
             and 'glyph' in claim.evidence.source
         ]
         self.assertEqual(1, len(glyph_claims))

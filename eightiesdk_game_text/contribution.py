@@ -38,7 +38,7 @@ from eightiesdk_game_text.record import encode_many
 
 #: the resource every extension in this fleet charges cartridge bytes
 #: to, so one ledger can add them up
-ROM_PAYLOAD = 'cartridge/rom_payload_bytes'
+ROM_PAYLOAD = 'rom_payload_bytes'
 
 TARGET_FACTS = ('profile', 'cartridge', 'configuration')
 

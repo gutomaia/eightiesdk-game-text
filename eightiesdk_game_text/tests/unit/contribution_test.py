@@ -152,7 +152,7 @@ class TextContributionTest(TextContributionSpec, TestCase):
         claim = self._claim()
         self.assertEqual(f'text:{self.owner}', claim.owner)
         self.assertEqual('cartridge', claim.lifecycle)
-        self.assertEqual('cartridge/rom_payload_bytes', claim.resource)
+        self.assertEqual('rom_payload_bytes', claim.resource)
 
     def assert_the_claim_spends_exactly_the_encoded_bytes(self):
         self.assertEqual(self.expected_bytes, self._claim().spent)
