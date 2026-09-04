@@ -18,8 +18,63 @@ and a surface, and neither of those lives here.
 """
 
 from dataclasses import fields, is_dataclass
+from pathlib import Path
 
+from eightiesdk_game_text.font import Font
 from eightiesdk_game_text.record import is_text_annotation
+
+
+class Typeface:
+    """Where a store's glyphs come from: a file, or authored art.
+
+    ``Typeface(path, height=16)`` renders a TrueType or OpenType file
+    at that height and subsets it to the characters a text uses.
+    ``Typeface.from_art({...})`` takes glyphs drawn in source. Either
+    way the store keeps only the glyphs its text needs, and a
+    character the face cannot draw, or a file that is not there, is a
+    refusal that names it rather than a blank on the glass.
+    """
+
+    def __init__(self, path=None, height=16, drawings=None):
+        if (path is None) == (drawings is None):
+            raise ValueError(
+                'a typeface is a file rendered at a height, or drawings, '
+                'not both and not neither'
+            )
+        self.path = None if path is None else Path(path)
+        self.height = height
+        self._font = None if drawings is None else Font.from_art(drawings)
+
+    @classmethod
+    def from_art(cls, drawings):
+        return cls(drawings=dict(drawings))
+
+    def glyphs_for(self, characters):
+        """A Font holding exactly the characters asked for."""
+        characters = ''.join(sorted(set(characters)))
+        if self._font is not None:
+            return Font(
+                {
+                    character: self._font.glyph(character)
+                    for character in characters
+                }
+            )
+        from eightiesdk_game_text.render import MissingGlyph, render
+
+        if not self.path.exists():
+            raise ValueError(
+                f'typeface file {self.path} does not exist: the glyphs '
+                f'for {len(characters)} characters cannot be drawn'
+            )
+        try:
+            return render(self.path, characters, body=self.height)
+        except MissingGlyph as missing:
+            raise ValueError(str(missing)) from None
+
+    def __repr__(self):
+        if self._font is not None:
+            return f'<Typeface art, {len(self._font.characters)} glyphs>'
+        return f'<Typeface {self.path.name} at {self.height}px>'
 
 
 class Text:
@@ -68,7 +123,13 @@ class TextStore:
 
     __eightiesdk_declaration__ = 'text'
 
-    def __init__(self, records):
+    def __init__(self, records, typeface=None):
+        if typeface is not None and not isinstance(typeface, Typeface):
+            raise ValueError(
+                f'a text store takes a Typeface, got '
+                f'{type(typeface).__name__}'
+            )
+        self.typeface = typeface
         records = tuple(records)
         if not records:
             raise ValueError('a text store needs at least one record')
@@ -109,4 +170,4 @@ class TextStore:
         )
 
 
-__all__ = ['Text', 'TextStore', 'text']
+__all__ = ['Text', 'TextStore', 'Typeface', 'text']

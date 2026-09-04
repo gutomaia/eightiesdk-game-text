@@ -33,6 +33,7 @@ from eightiesdk_resources.resource_plan import (
     ResourceClaim,
 )
 
+from eightiesdk_game_text.glyphs import GlyphStore
 from eightiesdk_game_text.record import encode_many
 
 #: the resource every extension in this fleet charges cartridge bytes
@@ -46,13 +47,15 @@ TARGET_FACTS = ('profile', 'cartridge', 'configuration')
 class TextContribution:
     """Every text store resolved so far, over one encoded cartridge.
 
-    `owners` and `stores` are parallel, in declaration order;
-    `cartridge` is the `CartridgeText` holding them all.
+    `owners`, `stores` and `glyphs` are parallel, in declaration
+    order; `cartridge` is the `CartridgeText` holding them all. A
+    store without a typeface has None where its glyphs would be.
     """
 
     owners: tuple
     stores: tuple
     cartridge: object
+    glyphs: tuple = ()
 
 
 def _refuse_target_disagreement(target, build_state):
@@ -125,20 +128,47 @@ def contribute_text(
             f'; {shared} string{"" if shared == 1 else "s"} already in the '
             f'pool from {", ".join(previous.owners)}'
         )
-    claim = ResourceClaim(
-        owner=f'text:{declaration_owner}',
-        lifecycle='cartridge',
-        resource=ROM_PAYLOAD,
-        spent=spent,
-        evidence=Evidence(
-            MEASURED,
-            f'eightiesdk-game-text encoded {len(request.records)} '
-            f'records: {detail}',
-        ),
-    )
-    claimed = retain_claims((claim,))
+    claims = [
+        ResourceClaim(
+            owner=f'text:{declaration_owner}',
+            lifecycle='cartridge',
+            resource=ROM_PAYLOAD,
+            spent=spent,
+            evidence=Evidence(
+                MEASURED,
+                f'eightiesdk-game-text encoded {len(request.records)} '
+                f'records: {detail}',
+            ),
+        )
+    ]
+    glyphs = None
+    if request.typeface is not None:
+        # ONLY THE CHARACTERS THIS STORE'S TEXT USES. The typeface
+        # may draw a thousand; the store keeps what its records
+        # contain, and a character it cannot draw refuses by name.
+        used = ''.join(request.texts)
+        glyphs = GlyphStore(request.typeface.glyphs_for(used), used)
+        claims.append(
+            ResourceClaim(
+                owner=f'text:{declaration_owner}',
+                lifecycle='cartridge',
+                resource=ROM_PAYLOAD,
+                spent=glyphs.size,
+                evidence=Evidence(
+                    MEASURED,
+                    f'eightiesdk-game-text glyph store: '
+                    f'{len(glyphs.characters)} glyphs over '
+                    f'{len(glyphs.cells)} distinct cells at 1bpp, '
+                    f'from {request.typeface!r}',
+                ),
+            )
+        )
+    glyph_stores = (previous.glyphs if previous else ()) + (glyphs,)
+    claimed = retain_claims(tuple(claims))
     retain_contribution = _port(claimed, 'with_extension_contribution')
-    return retain_contribution(TextContribution(owners, stores, cartridge))
+    return retain_contribution(
+        TextContribution(owners, stores, cartridge, glyph_stores)
+    )
 
 
 def _texts(stores):
