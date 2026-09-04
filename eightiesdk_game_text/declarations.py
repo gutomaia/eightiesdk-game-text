@@ -17,7 +17,50 @@ window, a plane or a console; whoever renders asks for an address
 and a surface, and neither of those lives here.
 """
 
-from dataclasses import is_dataclass
+from dataclasses import fields, is_dataclass
+
+from eightiesdk_game_text.record import is_text_annotation
+
+
+class Text:
+    """A string a cartridge carries by address.
+
+    ``text('WHO?')`` in a record is the mark that says "this field
+    is text, stored in the pool and reached by an offset". In the
+    game's own Python the value answers its string when CALLED,
+    which is how the twin reads what the compiled dialect reads as
+    an address; on the cartridge it costs exactly what a plain
+    ``str`` field always has, and the encoder proves the bytes
+    identical.
+    """
+
+    __slots__ = ('value',)
+
+    def __init__(self, value):
+        if not isinstance(value, str):
+            raise ValueError(
+                f'text() carries a str, got {type(value).__name__}'
+            )
+        self.value = value
+
+    def __call__(self):
+        return self.value
+
+    def __str__(self):
+        return self.value
+
+    def __eq__(self, other):
+        return isinstance(other, Text) and other.value == self.value
+
+    def __hash__(self):
+        return hash(self.value)
+
+    def __repr__(self):
+        return f'text({self.value!r})'
+
+
+#: the spelling content is written in: ``ask=text('WHO?')``
+text = Text
 
 
 class TextStore:
@@ -42,6 +85,23 @@ class TextStore:
             )
         self.records = records
 
+    @property
+    def texts(self):
+        """Every distinct text the store carries, first appearance
+        first, each once. THE COLLECTION: what the glyph store is
+        later subset to, and what a second store shares a pool
+        with."""
+        seen = {}
+        for record in self.records:
+            for field in fields(type(record)):
+                if not is_text_annotation(field.type):
+                    continue
+                value = getattr(record, field.name)
+                values = value if isinstance(value, (list, tuple)) else [value]
+                for item in values:
+                    seen.setdefault(str(item), None)
+        return tuple(seen)
+
     def __repr__(self):
         return (
             f'<TextStore {len(self.records)} '
@@ -49,4 +109,4 @@ class TextStore:
         )
 
 
-__all__ = ['TextStore']
+__all__ = ['Text', 'TextStore', 'text']

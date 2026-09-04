@@ -110,11 +110,41 @@ class RecordTable:
         return out
 
 
+#: the annotations that mean "text by address": a plain str, or the
+#: Text marker from declarations, spelled either as the type or as
+#: its name under `from __future__ import annotations`
+_TEXT_NAMES = ('str', 'Text')
+
+
+def _is_text_type(annotation):
+    if isinstance(annotation, str):
+        return annotation in _TEXT_NAMES
+    return getattr(annotation, '__name__', None) in _TEXT_NAMES
+
+
+def is_text_annotation(annotation):
+    """Whether a field annotation carries text: one string, or a
+    list of them. Shared with the declarations so the store and
+    the encoder agree on which fields are text."""
+    return _is_text_type(annotation) or _is_text_list(annotation)
+
+
+def _is_text_list(annotation):
+    if isinstance(annotation, str):
+        return annotation.startswith('list[') and any(
+            name in annotation for name in _TEXT_NAMES
+        )
+    return getattr(annotation, '__origin__', None) is list and any(
+        _is_text_type(argument)
+        for argument in getattr(annotation, '__args__', ())
+    )
+
+
 def _text_fields(record_type):
     for field in fields(record_type):
-        if field.type in (str, 'str'):
+        if _is_text_type(field.type):
             yield field.name, False
-        elif 'list' in str(field.type):
+        elif _is_text_list(field.type):
             yield field.name, True
 
 
@@ -136,7 +166,9 @@ def _alphabet_of(records, record_type):
         for name, many in _text_fields(record_type):
             value = getattr(record, name)
             for text in value if many else [value]:
-                for character in text:
+                # str() because a marked value is a Text and a
+                # plain one is a str; both spell the same string
+                for character in str(text):
                     counts[character] = counts.get(character, 0) + 1
     return ''.join(sorted(counts, key=lambda c: (-counts[c], c)))
 
@@ -168,6 +200,7 @@ def encode(records, endian):
         """Text into the pool, once. The same string appearing in
         two records is one string on the cartridge — content
         repeats itself far more than it looks like it does."""
+        text = str(text)
         if text in stored:
             return stored[text]
         at = len(pool)
@@ -182,9 +215,9 @@ def encode(records, endian):
     size = 0
     for field in fields(record_type):
         layout[field.name] = size
-        if field.type in (str, 'str'):
+        if _is_text_type(field.type):
             size += OFFSET
-        elif 'list' in str(field.type):
+        elif _is_text_list(field.type):
             size += COUNT + OFFSET
         else:
             size += 1
@@ -202,7 +235,7 @@ def encode(records, endian):
     table_at = {}
 
     def put_sequence(texts):
-        key = tuple(texts)
+        key = tuple(str(text) for text in texts)
         if key in table_at:
             return table_at[key]
         offsets = [put(text) for text in texts]
@@ -216,9 +249,9 @@ def encode(records, endian):
     for record in records:
         for field in fields(record_type):
             value = getattr(record, field.name)
-            if field.type in (str, 'str'):
+            if _is_text_type(field.type):
                 body += put(value).to_bytes(OFFSET, endian)
-            elif 'list' in str(field.type):
+            elif _is_text_list(field.type):
                 body.append(len(value))
                 body += put_sequence(value).to_bytes(OFFSET, endian)
             else:
