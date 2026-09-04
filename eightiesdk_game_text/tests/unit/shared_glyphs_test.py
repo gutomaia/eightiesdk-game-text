@@ -90,32 +90,28 @@ class SharedGlyphsTest(SharedGlyphsSpec, TestCase):
         self.state = self._contribute(self.second, 'second')
 
     def _glyphs(self):
-        last = [
-            item
-            for item in self.state.extension_contributions
-            if isinstance(item, TextContribution)
-        ][-1]
-        return last.glyphs
+        return self._contribution().glyphs
 
     def assert_the_stores_share_one_glyph_store_holding(self, characters):
         first, second = self._glyphs()
         self.assertIs(first, second)
         self.assertEqual(sorted(characters), sorted(first.characters))
 
-    def _glyph_claims(self):
+    def _contribution(self):
         return [
-            claim
-            for claim in self.state.resource_claims
-            if claim.resource == 'rom_payload_bytes'
-            and 'glyph' in claim.evidence.source
-        ]
+            item
+            for item in self.state.extension_contributions
+            if isinstance(item, TextContribution)
+        ][-1]
 
     def assert_the_second_glyph_claim_spends(self, size):
-        claims = self._glyph_claims()
+        claims = list(self.state.resource_claims)
         self.assertEqual(
             ['text:first', 'text:second'], [c.owner for c in claims]
         )
-        self.assertEqual(size, claims[1].spent)
+        text_bytes, glyph_bytes = self._contribution().costs[1]
+        self.assertEqual(size, glyph_bytes)
+        self.assertEqual(text_bytes + glyph_bytes, claims[1].spent)
 
     def assert_the_stores_keep_separate_glyph_stores(self):
         first, second = self._glyphs()

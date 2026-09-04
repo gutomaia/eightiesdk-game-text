@@ -7,7 +7,8 @@ a character the face draws but no text needs has no glyph, and a
 character the text needs but the face cannot draw is a refusal that
 names both. Identical cells share one slot, so the strokes Hangul
 syllables repeat are stored once. What the glyphs cost in ROM is
-claimed beside the text, measured.
+claimed with the text under the store's one owner, and the split
+is recorded on the contribution as numbers, measured.
 """
 
 

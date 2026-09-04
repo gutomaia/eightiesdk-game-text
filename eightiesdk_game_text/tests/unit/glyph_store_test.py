@@ -158,13 +158,15 @@ class GlyphStoreTest(GlyphStoreSpec, TestCase):
             self._contribute()
         self.refusal = caught.exception
 
-    def _glyphs(self):
-        last = [
+    def _contribution(self):
+        return [
             item
             for item in self.state.extension_contributions
             if isinstance(item, TextContribution)
         ][-1]
-        return last.glyphs[-1]
+
+    def _glyphs(self):
+        return self._contribution().glyphs[-1]
 
     def assert_glyphs_exist_exactly_for(self, characters):
         self.assertEqual(sorted(characters), sorted(self._glyphs().characters))
@@ -173,15 +175,18 @@ class GlyphStoreTest(GlyphStoreSpec, TestCase):
         self.assertEqual(count, len(self._glyphs().cells))
 
     def assert_the_glyph_claim_spends(self, size):
-        glyph_claims = [
+        # ONE claim for the owner; the glyph part is the number the
+        # contribution records, and the claim is text plus glyphs
+        claims = [
             claim
             for claim in self.state.resource_claims
-            if claim.resource == 'rom_payload_bytes'
-            and 'glyph' in claim.evidence.source
+            if claim.owner == 'text:bank'
         ]
-        self.assertEqual(1, len(glyph_claims))
-        self.assertEqual(size, glyph_claims[0].spent)
-        self.assertEqual('text:bank', glyph_claims[0].owner)
+        self.assertEqual(1, len(claims))
+        text_bytes, glyph_bytes = self._contribution().costs[-1]
+        self.assertEqual(size, glyph_bytes)
+        self.assertEqual(text_bytes + glyph_bytes, claims[0].spent)
+        self.assertIn(f'{size} bytes added', claims[0].evidence.source)
 
     def assert_the_refusal_names(self, *fragments):
         for fragment in fragments:

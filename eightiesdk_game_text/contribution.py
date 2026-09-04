@@ -56,6 +56,9 @@ class TextContribution:
     stores: tuple
     cartridge: object
     glyphs: tuple = ()
+    #: per store, (text bytes, glyph bytes) it added: the split behind
+    #: its one claim, as numbers rather than prose
+    costs: tuple = ()
 
 
 def _refuse_target_disagreement(target, build_state):
@@ -128,19 +131,13 @@ def contribute_text(
             f'; {shared} string{"" if shared == 1 else "s"} already in the '
             f'pool from {", ".join(previous.owners)}'
         )
-    claims = [
-        ResourceClaim(
-            owner=f'text:{declaration_owner}',
-            lifecycle='cartridge',
-            resource=ROM_PAYLOAD,
-            spent=spent,
-            evidence=Evidence(
-                MEASURED,
-                f'eightiesdk-game-text encoded {len(request.records)} '
-                f'records: {detail}',
-            ),
-        )
-    ]
+    text_spent = spent
+    text_detail = (
+        f'eightiesdk-game-text encoded {len(request.records)} records: '
+        f'{detail}'
+    )
+    glyph_spent = 0
+    glyph_detail = ''
     glyph_stores = list(previous.glyphs) if previous else []
     glyphs = None
     if request.typeface is not None:
@@ -176,17 +173,8 @@ def contribute_text(
                 f'; {len(before.cells)} cells already there from '
                 f'{", ".join(earlier_owners)}'
             )
-        claims.append(
-            ResourceClaim(
-                owner=f'text:{declaration_owner}',
-                lifecycle='cartridge',
-                resource=ROM_PAYLOAD,
-                spent=glyphs.size - (before.size if before else 0),
-                evidence=Evidence(
-                    MEASURED, f'eightiesdk-game-text glyph store: {detail}'
-                ),
-            )
-        )
+        glyph_spent = glyphs.size - (before.size if before else 0)
+        glyph_detail = f'; glyph store: {detail}, {glyph_spent} bytes added'
         # the earlier stores of this face now read from the shared
         # store too, so the tuple stays parallel and truthful
         glyph_stores = [
@@ -196,10 +184,22 @@ def contribute_text(
             )
         ]
     glyph_stores = tuple(glyph_stores) + (glyphs,)
-    claimed = retain_claims(tuple(claims))
+    # ONE CLAIM PER OWNER PER RESOURCE. The ledger refuses a second
+    # claim from the same owner with different evidence, so the text
+    # and the glyphs travel together and the split is carried as
+    # numbers on the contribution.
+    claim = ResourceClaim(
+        owner=f'text:{declaration_owner}',
+        lifecycle='cartridge',
+        resource=ROM_PAYLOAD,
+        spent=text_spent + glyph_spent,
+        evidence=Evidence(MEASURED, text_detail + glyph_detail),
+    )
+    costs = (previous.costs if previous else ()) + ((text_spent, glyph_spent),)
+    claimed = retain_claims((claim,))
     retain_contribution = _port(claimed, 'with_extension_contribution')
     return retain_contribution(
-        TextContribution(owners, stores, cartridge, glyph_stores)
+        TextContribution(owners, stores, cartridge, glyph_stores, costs)
     )
 
 
