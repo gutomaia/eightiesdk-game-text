@@ -148,8 +148,48 @@ def _text_fields(record_type):
             yield field.name, True
 
 
-def _alphabet_of(records, record_type):
-    """The characters used, COMMONEST FIRST.
+class CartridgeText:
+    """Every store of a cartridge over ONE alphabet and ONE pool.
+
+    `stores` are the per-store record tables in the order given;
+    they share `pool`, `tables` and `alphabet` by identity, so a
+    string two stores carry is in the pool once and a character
+    common to both costs the same one byte in both.
+    """
+
+    def __init__(self, alphabet, pool, tables, stores):
+        self.alphabet = alphabet
+        self.pool = pool
+        self.tables = tables
+        self.stores = tuple(stores)
+
+    @property
+    def size(self):
+        """Every text byte the cartridge carries, once."""
+        return (
+            sum(len(store.records) for store in self.stores)
+            + len(self.pool)
+            + len(self.tables)
+        )
+
+
+def _count_characters(record_lists):
+    counts = {}
+    for records in record_lists:
+        record_type = type(records[0])
+        for record in records:
+            for name, many in _text_fields(record_type):
+                value = getattr(record, name)
+                for text in value if many else [value]:
+                    # str() because a marked value is a Text and a
+                    # plain one is a str; both spell the same string
+                    for character in str(text):
+                        counts[character] = counts.get(character, 0) + 1
+    return counts
+
+
+def _alphabet_of(record_lists):
+    """The characters used, COMMONEST FIRST, across every store.
 
     Frequency order is what keeps everyday text at one byte per
     character: only the first 254 fit the direct code, and past
@@ -161,24 +201,41 @@ def _alphabet_of(records, record_type):
     encodes to the same bytes — a build that changed its ROM when
     nothing changed would be impossible to diff.
     """
-    counts = {}
-    for record in records:
-        for name, many in _text_fields(record_type):
-            value = getattr(record, name)
-            for text in value if many else [value]:
-                # str() because a marked value is a Text and a
-                # plain one is a str; both spell the same string
-                for character in str(text):
-                    counts[character] = counts.get(character, 0) + 1
+    counts = _count_characters(record_lists)
     return ''.join(sorted(counts, key=lambda c: (-counts[c], c)))
 
 
+def _layout_of(record_type):
+    """WHAT EACH FIELD COSTS, and where it sits in a record."""
+    layout = {}
+    size = 0
+    for field in fields(record_type):
+        layout[field.name] = size
+        if _is_text_type(field.type):
+            size += OFFSET
+        elif _is_text_list(field.type):
+            size += COUNT + OFFSET
+        else:
+            size += 1
+    return layout, size
+
+
 def encode(records, endian):
-    """Encode a list of dataclass instances into a record table."""
-    if not records:
+    """Encode a list of dataclass instances into a record table.
+
+    One store on its own: the same bytes `encode_many` gives it as
+    the only store of a cartridge, which the text-marker examples
+    pin against the record spec's content.
+    """
+    return encode_many([records], endian).stores[0]
+
+
+def encode_many(record_lists, endian):
+    """Encode several lists of dataclass instances over one pool."""
+    record_lists = [list(records) for records in record_lists]
+    if not record_lists or any(not records for records in record_lists):
         raise ValueError('a record table needs at least one record')
-    record_type = type(records[0])
-    alphabet = _alphabet_of(records, record_type)
+    alphabet = _alphabet_of(record_lists)
     if len(alphabet) > WIDEST:
         raise TooManyGlyphs(
             f'{len(alphabet)} distinct characters; the code names '
@@ -198,8 +255,9 @@ def encode(records, endian):
 
     def put(text):
         """Text into the pool, once. The same string appearing in
-        two records is one string on the cartridge — content
-        repeats itself far more than it looks like it does."""
+        two records — or two STORES — is one string on the
+        cartridge; content repeats itself far more than it looks
+        like it does."""
         text = str(text)
         if text in stored:
             return stored[text]
@@ -209,18 +267,6 @@ def encode(records, endian):
         pool.append(TERMINATOR)
         stored[text] = at
         return at
-
-    # WHAT EACH FIELD COSTS, and where it sits in a record.
-    layout = {}
-    size = 0
-    for field in fields(record_type):
-        layout[field.name] = size
-        if _is_text_type(field.type):
-            size += OFFSET
-        elif _is_text_list(field.type):
-            size += COUNT + OFFSET
-        else:
-            size += 1
 
     # SEQUENCES ARE TABLES OF OFFSETS, not runs of text.
     # Laying a sequence's strings down consecutively would let a
@@ -245,24 +291,27 @@ def encode(records, endian):
         table_at[key] = at
         return at
 
-    body = bytearray()
-    for record in records:
-        for field in fields(record_type):
-            value = getattr(record, field.name)
-            if _is_text_type(field.type):
-                body += put(value).to_bytes(OFFSET, endian)
-            elif _is_text_list(field.type):
-                body.append(len(value))
-                body += put_sequence(value).to_bytes(OFFSET, endian)
-            else:
-                body.append(value)
+    bodies = []
+    for records in record_lists:
+        record_type = type(records[0])
+        layout, size = _layout_of(record_type)
+        body = bytearray()
+        for record in records:
+            for field in fields(record_type):
+                value = getattr(record, field.name)
+                if _is_text_type(field.type):
+                    body += put(value).to_bytes(OFFSET, endian)
+                elif _is_text_list(field.type):
+                    body.append(len(value))
+                    body += put_sequence(value).to_bytes(OFFSET, endian)
+                else:
+                    body.append(value)
+        bodies.append((bytes(body), layout, size))
 
-    return RecordTable(
-        bytes(body),
-        bytes(pool),
-        alphabet,
-        layout,
-        size,
-        endian,
-        bytes(tables),
-    )
+    pool = bytes(pool)
+    tables = bytes(tables)
+    stores = [
+        RecordTable(body, pool, alphabet, layout, size, endian, tables)
+        for body, layout, size in bodies
+    ]
+    return CartridgeText(alphabet, pool, tables, stores)

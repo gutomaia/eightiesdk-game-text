@@ -11,9 +11,10 @@ does not know where they are drawn, which plane, or which console.
 class TextContributionSpec:
     """Bindings invoke ``contribute_text`` with extension-neutral values.
 
-    The build state supplies ``with_resource_claims`` and the three
-    target facts. The contributor must not depend on any platform,
-    runtime or product package.
+    The build state supplies ``with_resource_claims``,
+    ``with_extension_contribution`` and the three target facts. The
+    contributor must not depend on any platform, runtime or product
+    package.
     """
 
     def given_records_with_text_fields(self):

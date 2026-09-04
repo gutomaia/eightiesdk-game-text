@@ -34,8 +34,15 @@ class Target:
 
 
 class Replacement:
-    def __init__(self, claims):
+    def __init__(self, claims, contributions=()):
         self.resource_claims = tuple(claims)
+        self.extension_contributions = tuple(contributions)
+
+    def with_extension_contribution(self, contribution):
+        return Replacement(
+            self.resource_claims,
+            self.extension_contributions + (contribution,),
+        )
 
 
 class ClaimingBuildState:
@@ -44,11 +51,15 @@ class ClaimingBuildState:
         self.cartridge = target.cartridge
         self.configuration = target.configuration
         self.resource_claims = ()
+        self.extension_contributions = ()
         self.received = []
 
     def with_resource_claims(self, claims):
         self.received.append(tuple(claims))
         return Replacement(self.resource_claims + tuple(claims))
+
+    def with_extension_contribution(self, contribution):
+        return Replacement(self.resource_claims, (contribution,))
 
 
 class PortlessBuildState:
