@@ -26,9 +26,12 @@ UNBOUNDED = 1 << 20
 class GlyphStore:
     """Every glyph a store's text uses, over one shared set of cells."""
 
-    def __init__(self, font, characters):
+    def __init__(self, font, characters, reserved=0):
+        """`reserved` slots at the bottom belong to someone else: a
+        console wants an honestly blank tile 0, so a screen store
+        starts its cells above it."""
         self.font = font
-        self._atlas = Atlas(font, capacity=UNBOUNDED, reserved=0)
+        self._atlas = Atlas(font, capacity=UNBOUNDED, reserved=reserved)
         self._slots = {}
         for character in sorted(set(characters)):
             self._slots[character] = self._atlas.claim(character)

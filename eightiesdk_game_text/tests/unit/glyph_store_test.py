@@ -172,7 +172,8 @@ class GlyphStoreTest(GlyphStoreSpec, TestCase):
         self.assertEqual(sorted(characters), sorted(self._glyphs().characters))
 
     def assert_distinct_cells_stored(self, count):
-        self.assertEqual(count, len(self._glyphs().cells))
+        store = getattr(self, 'glyph_store', None) or self._glyphs()
+        self.assertEqual(count, len(store.cells))
 
     def assert_the_glyph_claim_spends(self, size):
         # ONE claim for the owner; the glyph part is the number the
@@ -191,6 +192,22 @@ class GlyphStoreTest(GlyphStoreSpec, TestCase):
     def assert_the_refusal_names(self, *fragments):
         for fragment in fragments:
             self.assertIn(fragment, str(self.refusal))
+
+    def given_one_reserved_slot(self):
+        self.reserved = 1
+
+    def when_the_glyphs_are_stored(self):
+        from eightiesdk_game_text.glyphs import GlyphStore
+
+        used = ''.join(self.store.texts)
+        self.glyph_store = GlyphStore(
+            self.typeface.glyphs_for(used), used, reserved=self.reserved
+        )
+
+    def assert_no_glyph_uses_slot(self, slot):
+        for character in self.glyph_store.characters:
+            self.assertNotIn(slot, self.glyph_store.slots_of(character))
+        self.assertNotIn(slot, self.glyph_store.cells)
 
 
 __all__ = ['GlyphStoreTest']

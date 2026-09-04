@@ -43,6 +43,15 @@ class GlyphStoreSpec:
     def assert_the_refusal_names(self, *fragments):
         raise NotImplementedError()
 
+    def given_one_reserved_slot(self):
+        raise NotImplementedError()
+
+    def when_the_glyphs_are_stored(self):
+        raise NotImplementedError()
+
+    def assert_no_glyph_uses_slot(self, slot):
+        raise NotImplementedError()
+
     def test_a_glyph_exists_only_for_a_character_the_text_uses(self):
         self.given_a_typeface_drawn_as_art(('A', 'B', 'Z'))
         self.given_records_saying('AB', 'BA')
@@ -80,6 +89,19 @@ class GlyphStoreSpec:
         self.when_contribution_is_refused()
 
         self.assert_the_refusal_names('한')
+
+    def test_reserved_slots_are_never_given_to_a_glyph(self):
+        """A console wants an honestly blank tile at the bottom; a
+        store built with one reserved slot starts its cells above
+        it, so slot 0 is nobody's stroke."""
+        self.given_a_typeface_drawn_as_art(('A', 'B', 'Z'))
+        self.given_records_saying('AB')
+        self.given_one_reserved_slot()
+
+        self.when_the_glyphs_are_stored()
+
+        self.assert_no_glyph_uses_slot(0)
+        self.assert_distinct_cells_stored(2)
 
     def test_a_missing_typeface_file_is_refused_by_name(self):
         self.given_a_typeface_file_that_does_not_exist()
