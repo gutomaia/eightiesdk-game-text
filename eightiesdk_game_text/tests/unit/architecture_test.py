@@ -11,7 +11,10 @@ PACKAGE_ROOT = Path(eightiesdk_game_text.__file__).parent
 
 #: what a production module of this extension may never import
 FORBIDDEN = (
-    'eightiesdk_platform',
+    # every console's crust; the bare `eightiesdk_platform` package is
+    # the neutral runtime records a console's routine is contributed
+    # through (ADR-0001), so the family is banned and the package is not
+    'eightiesdk_platform_',
     'eightiesdk_runtime',
     'eightiesdk_game_hud',
     'eightiesdk_game_scene',
@@ -27,17 +30,23 @@ def crossing_imports(sources, forbidden):
 
     `sources` maps a module name to its text. A name crosses when its
     TOP-LEVEL package is a forbidden one or a member of its family:
-    `eightiesdk_platform` bans `eightiesdk_platform_nes` too. The
-    first reader matched `banned + '.'` only, and the positive
-    control caught it letting a platform crust straight through.
+    `eightiesdk_runtime` bans `eightiesdk_runtime_x` too. A banned
+    name ending in an underscore bans the FAMILY ONLY, so
+    `eightiesdk_platform_` refuses every crust and admits the neutral
+    `eightiesdk_platform` package. The first reader matched
+    `banned + '.'` only, and the positive control caught it letting a
+    platform crust straight through.
     """
 
     def crosses(name):
         top = name.split('.')[0]
-        return any(
-            top == banned or top.startswith(banned + '_')
-            for banned in forbidden
-        )
+        for banned in forbidden:
+            if banned.endswith('_'):
+                if top.startswith(banned):
+                    return True
+            elif top == banned or top.startswith(banned + '_'):
+                return True
+        return False
 
     for module, source in sources.items():
         for node in ast.walk(ast.parse(source)):

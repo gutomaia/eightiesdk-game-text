@@ -15,6 +15,13 @@ python = "^3.12"
 # entry point and must never be imported back.
 eightiesdk-game = { path = "../eightiesdk-game", develop = true }
 eightiesdk-resources = { path = "../eightiesdk-resources", develop = true }
+# THE RUNTIME HALF (ADR-0001): drawing text on a console at run time
+# is typed CPU code contributed through the platform-neutral runtime
+# records, the way the HUD and stream-animation extensions do it.
+# The neutral records and the encoders, never a console's crust.
+eightiesdk-platform = { path = "../eightiesdk-platform", develop = true }
+eightiesdk-cpu = { path = "../eightiesdk-cpu", develop = true }
+eightiesdk-cpu-m68000 = { path = "../eightiesdk-cpu-m68000", develop = true }
 # render.py imports PIL to draw a glyph from a typeface. It was
 # declared NOWHERE — this file had no runtime dependencies at all
 # — and the suite was green because Pillow happened to be in a
@@ -29,6 +36,10 @@ flake8 = "^7.3"
 pytest = "^8.4"
 bandit = "^1.9"
 eightiesdk-fitness = { path = "../eightiesdk-fitness", develop = true }
+# the booted proofs: a cartridge built by the runtime on one crust,
+# run on that console's runner
+eightiesdk-runtime = { path = "../eightiesdk-runtime", develop = true }
+eightiesdk-platform-megadrive = { path = "../eightiesdk-platform-megadrive", develop = true }
 
 [tool.black]
 line-length = 79

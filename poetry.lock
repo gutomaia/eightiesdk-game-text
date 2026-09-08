@@ -105,6 +105,69 @@ files = [
 ]
 
 [[package]]
+name = "eightiesdk-assets"
+version = "0.1.0"
+description = "Eighties SDK asset contracts: the neutral IndexedAsset every decoder produces and every console encoder consumes, plus the reusable spec that keeps both halves honest."
+optional = false
+python-versions = "^3.12"
+groups = ["main", "dev"]
+files = []
+develop = true
+
+[package.source]
+type = "directory"
+url = "../eightiesdk-assets"
+
+[[package]]
+name = "eightiesdk-core"
+version = "0.7.0"
+description = "Eighties SDK core: portable behavioral specs and the main compiler abstractions (frontend, portable IR) shared by all eightiesdk CPU and platform packages."
+optional = false
+python-versions = "^3.12"
+groups = ["main", "dev"]
+files = []
+develop = true
+
+[package.source]
+type = "directory"
+url = "../eightiesdk-core"
+
+[[package]]
+name = "eightiesdk-cpu"
+version = "0.7.0"
+description = "Eighties SDK CPU contracts: the backend and harness interfaces every eightiesdk-cpu-* package implements, plus the conformance kit that runs core behavioral specs through any backend/harness pair."
+optional = false
+python-versions = "^3.12"
+groups = ["main", "dev"]
+files = []
+develop = true
+
+[package.dependencies]
+eightiesdk-core = {path = "../eightiesdk-core", develop = true}
+
+[package.source]
+type = "directory"
+url = "../eightiesdk-cpu"
+
+[[package]]
+name = "eightiesdk-cpu-m68000"
+version = "0.7.0"
+description = "Eighties SDK M68000 CPU backend: lowers the portable IR to big-endian 68000 machine code (Mega Drive, Neo Geo), proven on a Musashi-based harness."
+optional = false
+python-versions = "^3.12"
+groups = ["main", "dev"]
+files = []
+develop = true
+
+[package.dependencies]
+eightiesdk-core = {path = "../eightiesdk-core", develop = true}
+eightiesdk-cpu = {path = "../eightiesdk-cpu", develop = true}
+
+[package.source]
+type = "directory"
+url = "../eightiesdk-cpu-m68000"
+
+[[package]]
 name = "eightiesdk-fitness"
 version = "0.1.0"
 description = "Eighties SDK architecture fitness contracts: reusable specs a package binds to prove things about its own build, environment and guards."
@@ -124,7 +187,7 @@ version = "0.1.0"
 description = "Eighties SDK game abstractions: the nouns a game is made of — Level today, Enemy and physics next — with no knowledge of consoles, tooling, or how a game is read."
 optional = false
 python-versions = "^3.12"
-groups = ["main"]
+groups = ["main", "dev"]
 files = []
 develop = true
 
@@ -133,18 +196,82 @@ type = "directory"
 url = "../eightiesdk-game"
 
 [[package]]
+name = "eightiesdk-platform"
+version = "0.7.0"
+description = "Eighties SDK platform contracts: cartridge packager and ROM runner interfaces, the emulator Test ABI, and the full-ROM conformance kit that proves core behavioral specs as booted cartridges."
+optional = false
+python-versions = "^3.12"
+groups = ["main", "dev"]
+files = []
+develop = true
+
+[package.dependencies]
+eightiesdk-assets = {path = "../eightiesdk-assets", develop = true}
+eightiesdk-core = {path = "../eightiesdk-core", develop = true}
+eightiesdk-cpu = {path = "../eightiesdk-cpu", develop = true}
+eightiesdk-resources = {path = "../eightiesdk-resources", develop = true}
+
+[package.source]
+type = "directory"
+url = "../eightiesdk-platform"
+
+[[package]]
+name = "eightiesdk-platform-megadrive"
+version = "0.7.0"
+description = "Eighties SDK Mega Drive platform: SEGA-header ROM packager (vector table, word checksum) with Musashi machine-boot and BizHawk genesis conformance for the core behavioral specs."
+optional = false
+python-versions = "^3.12"
+groups = ["dev"]
+files = []
+develop = true
+
+[package.dependencies]
+eightiesdk-assets = {path = "../eightiesdk-assets", develop = true}
+eightiesdk-core = {path = "../eightiesdk-core", develop = true}
+eightiesdk-cpu = {path = "../eightiesdk-cpu", develop = true}
+eightiesdk-cpu-m68000 = {path = "../eightiesdk-cpu-m68000", develop = true}
+eightiesdk-game = {path = "../eightiesdk-game", develop = true}
+eightiesdk-platform = {path = "../eightiesdk-platform", develop = true}
+eightiesdk-resources = {path = "../eightiesdk-resources", develop = true}
+eightiesdk-runtime = {path = "../eightiesdk-runtime", develop = true}
+
+[package.source]
+type = "directory"
+url = "../eightiesdk-platform-megadrive"
+
+[[package]]
 name = "eightiesdk-resources"
 version = "0.1.0"
 description = "Eighties SDK resource contracts: what a strategy costs, what a console affords, and the resolver that picks between strategies for the game in hand."
 optional = false
 python-versions = "^3.12"
-groups = ["main"]
+groups = ["main", "dev"]
 files = []
 develop = true
 
 [package.source]
 type = "directory"
 url = "../eightiesdk-resources"
+
+[[package]]
+name = "eightiesdk-runtime"
+version = "0.7.0"
+description = "Eighties SDK portable game runtime: the Game.init/update/render lifecycle, deterministic ticks, and the behavioral specs every console runtime must honor."
+optional = false
+python-versions = "^3.12"
+groups = ["dev"]
+files = []
+develop = true
+
+[package.dependencies]
+eightiesdk-assets = {path = "../eightiesdk-assets", develop = true}
+eightiesdk-core = {path = "../eightiesdk-core", develop = true}
+eightiesdk-game = {path = "../eightiesdk-game", develop = true}
+eightiesdk-resources = {path = "../eightiesdk-resources", develop = true}
+
+[package.source]
+type = "directory"
+url = "../eightiesdk-runtime"
 
 [[package]]
 name = "flake8"
@@ -630,4 +757,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "1f293f926fe792d20771f5ed117ec0cffa85588790e5a22e81a0262182a961df"
+content-hash = "ff6c5cb305ebe4c8dbfd626e0975e88dafffe852f830eb42986bbd18744dc70d"

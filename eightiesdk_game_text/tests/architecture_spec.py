@@ -37,6 +37,19 @@ class ImportBoundarySpec:
 
         self.assert_no_import_crosses_the_boundary()
 
+    def test_the_neutral_runtime_records_are_not_a_crossing(self):
+        """A console's runtime is contributed as typed CPU code through
+        the platform-NEUTRAL records (ADR-0001), the way the HUD and
+        the streamed animation do it. The neutral package is a
+        neighbour; every console's crust stays across the line."""
+        self.given_a_module_source(
+            'runtime.py',
+            'from eightiesdk_platform.runtime_contribution import '
+            'RuntimeHook\n',
+        )
+        self.when_the_import_boundary_is_checked()
+        self.assert_no_import_crosses_the_boundary()
+
     def test_a_crossing_import_is_refused_by_name(self):
         self.given_a_module_source(
             'leak.py',

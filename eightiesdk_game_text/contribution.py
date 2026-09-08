@@ -114,7 +114,10 @@ def contribute_text(
     owners = (previous.owners if previous else ()) + (declaration_owner,)
     stores = (previous.stores if previous else ()) + (request,)
     before = previous.cartridge if previous else None
-    cartridge = encode_many([store.records for store in stores], 'little')
+    wide = _wide_rule(request, stores)
+    cartridge = encode_many(
+        [store.records for store in stores], 'little', wide
+    )
     spent = cartridge.size - (before.size if before else 0)
     own = cartridge.stores[-1]
     pool_added = len(cartridge.pool) - (len(before.pool) if before else 0)
@@ -197,9 +200,75 @@ def contribute_text(
     )
     costs = (previous.costs if previous else ()) + ((text_spent, glyph_spent),)
     claimed = retain_claims((claim,))
+    if glyphs is not None:
+        claimed = _drawn_at_runtime(
+            claimed,
+            target,
+            declaration_owner,
+            request,
+            stores,
+            wide,
+            glyphs,
+        )
     retain_contribution = _port(claimed, 'with_extension_contribution')
     return retain_contribution(
         TextContribution(owners, stores, cartridge, glyph_stores, costs)
+    )
+
+
+def _wide_rule(request, stores):
+    """Wide by the face's own measure over every store's text, so
+    the alphabet puts narrow codes first and `wide_from` is one
+    number; None when no face is declared."""
+    if request.typeface is None:
+        return None
+    used = ''.join(text for store in stores for text in store.texts)
+    font = request.typeface.glyphs_for(used)
+    return lambda character: font.glyph(character).columns > 1
+
+
+#: the consoles this extension draws on at run time, by target name;
+#: the module is imported only when its console is the target
+RUNTIMES = {'megadrive': 'eightiesdk_game_text.megadrive.runtime'}
+
+
+def _drawn_at_runtime(
+    build_state, target, owner, request, stores, wide, glyphs
+):
+    """On a console with a runtime here, the store is drawn at run
+    time: the game gets its request bytes, the glyph cells a pattern
+    reservation, and the linker a contribution of code and data. On
+    any other console the store is claim-only, as before."""
+    module_name = RUNTIMES.get(getattr(target, 'name', None))
+    if module_name is None:
+        return build_state
+    from importlib import import_module
+
+    runtime = import_module(module_name)
+    configuration = getattr(build_state, 'configuration', None)
+    if configuration is None:
+        return build_state
+    cartridge = encode_many(
+        [store.records for store in stores], runtime.ENDIAN, wide
+    )
+    reservation = configuration.allocate_pattern_reservation(
+        owner=f'text:{owner}',
+        count=len(glyphs.cells),
+        reservations=getattr(build_state, 'pattern_reservations', ()),
+    )
+    contribution = runtime.text_runtime(
+        owner,
+        cartridge,
+        cartridge.stores[-1],
+        type(request.records[0]),
+        glyphs,
+        configuration,
+        reservation,
+    )
+    return (
+        _port(build_state, 'with_pattern_reservation')(reservation)
+        .with_compiler_inputs((runtime.request_state(owner),))
+        .with_runtime_contributions((contribution,))
     )
 
 
