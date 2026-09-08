@@ -249,8 +249,12 @@ def _wide_from(alphabet, wide):
     return len(alphabet)
 
 
-def _layout_of(record_type):
-    """WHAT EACH FIELD COSTS, and where it sits in a record."""
+def _layout_of(record_type, align=1):
+    """WHAT EACH FIELD COSTS, and where it sits in a record. A
+    record is padded up to `align`: a 68000 reads a word at an odd
+    address and takes an address error, so a console that reads
+    words aligned asks for even records and the pad is bytes of
+    nothing."""
     layout = {}
     size = 0
     for field in fields(record_type):
@@ -261,21 +265,23 @@ def _layout_of(record_type):
             size += COUNT + OFFSET
         else:
             size += 1
+    size += -size % align
     return layout, size
 
 
-def encode(records, endian, wide=None):
+def encode(records, endian, wide=None, align=1):
     """Encode a list of dataclass instances into a record table.
 
     One store on its own: the same bytes `encode_many` gives it as
     the only store of a cartridge, which the text-marker examples
     pin against the record spec's content.
     """
-    return encode_many([records], endian, wide).stores[0]
+    return encode_many([records], endian, wide, align).stores[0]
 
 
-def encode_many(record_lists, endian, wide=None):
-    """Encode several lists of dataclass instances over one pool."""
+def encode_many(record_lists, endian, wide=None, align=1):
+    """Encode several lists of dataclass instances over one pool,
+    records padded to `align`."""
     record_lists = [list(records) for records in record_lists]
     if not record_lists or any(not records for records in record_lists):
         raise ValueError('a record table needs at least one record')
@@ -340,9 +346,10 @@ def encode_many(record_lists, endian, wide=None):
     bodies = []
     for records in record_lists:
         record_type = type(records[0])
-        layout, size = _layout_of(record_type)
+        layout, size = _layout_of(record_type, align)
         body = bytearray()
         for record in records:
+            start = len(body)
             for field in fields(record_type):
                 value = getattr(record, field.name)
                 if _is_text_type(field.type):
@@ -352,6 +359,7 @@ def encode_many(record_lists, endian, wide=None):
                     body += put_sequence(value).to_bytes(OFFSET, endian)
                 else:
                     body.append(value)
+            body.extend(bytes(size - (len(body) - start)))
         bodies.append((bytes(body), layout, size))
 
     pool = bytes(pool)

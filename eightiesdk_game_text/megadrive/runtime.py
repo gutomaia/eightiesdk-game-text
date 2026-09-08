@@ -79,8 +79,10 @@ from eightiesdk_game_text.record import (
 )
 
 TARGET_ABI = 'm68k-md'
-#: the 68000 reads a record's offsets big-endian
+#: the 68000 reads a record's offsets big-endian, and at even
+#: addresses: an odd word read is an address error
 ENDIAN = 'big'
+ALIGN = 2
 #: the request byte that asks for nothing
 NOTHING = 0xFF
 #: VDP register 15: auto-increment by one word after a data write
@@ -568,7 +570,8 @@ def text_runtime(
             f'the pool is {len(cartridge.pool)} bytes; this console adds '
             'an offset as a signed word and reaches 32,767'
         )
-    layout, record_size = _layout_of(record_type)
+    layout, _unpadded = _layout_of(record_type)
+    record_size = table.record_size
     text_field = next(iter(_text_fields(record_type)))[0]
     names = request_names(owner)
     cells = cell_bytes(glyphs)

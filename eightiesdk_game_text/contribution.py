@@ -275,6 +275,7 @@ def _drawn_at_runtime(build_state, target, owner, request):
         [request.records],
         runtime.ENDIAN,
         lambda character: font.glyph(character).columns > 1,
+        runtime.ALIGN,
     )
     glyphs = GlyphStore(font, used)
     reservation = configuration.allocate_pattern_reservation(

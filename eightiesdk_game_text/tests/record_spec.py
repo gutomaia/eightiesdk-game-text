@@ -121,6 +121,13 @@ class RecordTableSpec:
         alphabet (nothing draws it), and reads back as itself."""
         raise NotImplementedError()
 
+    def given_three_byte_records(self):
+        """Records of one text and one byte: three bytes each."""
+        raise NotImplementedError()
+
+    def when_encoded_aligned_to(self, alignment):
+        raise NotImplementedError()
+
     def assert_offset_byte_order(self, text):
         """The record pointing at `text` holds that text's real
         position in the pool, written in the platform's order.
@@ -235,6 +242,20 @@ class RecordTableSpec:
         self.given_records_with_a_line_break()
         self.when_encoded()
         self.assert_the_line_break_is_one_code_and_no_glyph()
+
+    def test_a_record_is_padded_to_the_alignment_asked(self):
+        """A 68000 reads a word at an odd address and takes an
+        address error; a record whose text offset lands there is a
+        crash on every second page. Measured on the Mega Drive:
+        a three-byte record, the second page's offset at $2A11.
+        A console that reads words aligned asks for records padded
+        to an even size; the pad is bytes of nothing and the text
+        reads back the same."""
+        self.given_three_byte_records()
+        self.when_encoded_aligned_to(2)
+        self.assert_record_size(4)
+        self.assert_record_count(2)
+        self.assert_text_of(1, 'text', 'B')
 
     def test_the_alphabet_holds_only_the_characters_used(self):
         self.given_records()

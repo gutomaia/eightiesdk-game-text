@@ -20,6 +20,12 @@ class Question:
     correct: int
 
 
+@dataclass
+class Page:
+    text: str
+    correct: int
+
+
 class RecordTableBinding(RecordTableSpec):
     endian = None
 
@@ -126,6 +132,12 @@ class RecordTableBinding(RecordTableSpec):
         self.assertEqual(len('HOW\nTALL?'), end - offset)
         self.assertIn(LINE_BREAK, self.table.pool[offset:end])
         self.assertEqual('HOW\nTALL?', self.table.read_text(0, 'ask'))
+
+    def given_three_byte_records(self):
+        self.records = [Page('A', 0), Page('B', 1)]
+
+    def when_encoded_aligned_to(self, alignment):
+        self.table = encode(self.records, endian=self.endian, align=alignment)
 
     def assert_offset_byte_order(self, text):
         encoded = bytes(self.table.alphabet.index(c) for c in text)
