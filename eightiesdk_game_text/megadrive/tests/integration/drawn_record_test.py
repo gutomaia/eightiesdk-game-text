@@ -132,6 +132,29 @@ class LinesGame(Game):
         frame.sprite(16, 16, tile=0)
 
 
+ASKING_RECORDS = FIRST_RECORDS + SECOND_RECORDS
+
+
+class AskingGame(Game):
+    """Writes the request bytes itself, on its first update."""
+
+    def declare(self):
+        self.text = TextStore(ASKING_RECORDS, typeface=FACE)
+
+    def init(self, ctx):
+        self.idle = 0
+
+    def update(self, ctx):
+        if self.idle == 0:
+            self.text_row = 2
+            self.text_column = 3
+            self.text_request = 0
+            self.idle = 1
+
+    def render(self, frame):
+        frame.sprite(16, 16, tile=0)
+
+
 class TwoStoreGame(Game):
     def declare(self):
         self.first = TextStore(FIRST_RECORDS, typeface=FACE)
@@ -172,6 +195,9 @@ class DrawnRecordOnMegaDriveTest(DrawnRecordSpec, TestCase):
 
     def given_a_cartridge_with_a_two_line_record(self):
         self._build(LinesGame, FACE, 'ABW')
+
+    def given_a_cartridge_whose_game_asks_in_its_own_update(self):
+        self._build(AskingGame, FACE, 'ABW')
 
     def when_the_game_asks_store_for(self, store, index, row, column):
         owner = self.STORES[store]

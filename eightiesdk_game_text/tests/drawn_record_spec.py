@@ -127,6 +127,22 @@ class DrawnRecordSpec:
         self.assert_drawn_at(3, 5, first)
         self.assert_drawn_at(5, 5, second)
 
+    def given_a_cartridge_whose_game_asks_in_its_own_update(self):
+        """The same two records, asked for by the game's compiled
+        update() writing the request bytes itself on its first
+        frame: record 0 at row 2, column 3."""
+        raise NotImplementedError()
+
+    def test_the_game_asks_from_its_own_update(self):
+        """THE BINDING IS THE DIALECT'S OWN STORE: the bytes the
+        extension creates are ordinary variables to the game, written
+        like any other, no call and no port."""
+        self.given_a_cartridge_whose_game_asks_in_its_own_update()
+        self.when_booted()
+        self.when_a_frame_passes()
+        self.when_a_frame_passes()
+        self.assert_drawn_at(2, 3, self.FIRST)
+
     def test_the_draw_fits_the_vblank_window(self):
         self.given_a_cartridge_with_the_two_records()
         self.when_booted()
