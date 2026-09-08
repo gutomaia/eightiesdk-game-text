@@ -54,7 +54,15 @@ class RecordTable:
     """
 
     def __init__(
-        self, records, pool, alphabet, layout, record_size, endian, tables=b''
+        self,
+        records,
+        pool,
+        alphabet,
+        layout,
+        record_size,
+        endian,
+        tables=b'',
+        wide_from=None,
     ):
         self.records = records
         self.pool = pool
@@ -63,6 +71,8 @@ class RecordTable:
         self.layout = layout
         self.record_size = record_size
         self.endian = endian
+        #: the first wide code: below it narrow, from it on wide
+        self.wide_from = len(alphabet) if wide_from is None else wide_from
 
     @property
     def count(self):
@@ -157,11 +167,13 @@ class CartridgeText:
     common to both costs the same one byte in both.
     """
 
-    def __init__(self, alphabet, pool, tables, stores):
+    def __init__(self, alphabet, pool, tables, stores, wide_from=None):
         self.alphabet = alphabet
         self.pool = pool
         self.tables = tables
         self.stores = tuple(stores)
+        #: the first wide code: below it narrow, from it on wide
+        self.wide_from = len(alphabet) if wide_from is None else wide_from
 
     @property
     def size(self):
@@ -188,7 +200,7 @@ def _count_characters(record_lists):
     return counts
 
 
-def _alphabet_of(record_lists):
+def _alphabet_of(record_lists, wide=None):
     """The characters used, COMMONEST FIRST, across every store.
 
     Frequency order is what keeps everyday text at one byte per
@@ -197,12 +209,32 @@ def _alphabet_of(record_lists):
     Alphabetical order would put common and rare characters in the
     same lottery and widen ordinary words for no reason.
 
+    WITH A WIDTH RULE, every narrow character precedes every wide
+    one and frequency orders each half: width is then a threshold
+    on the code (`wide_from`) and a renderer carries no width
+    table, the way the owner's original cartridges compared a
+    glyph's address with one label. The narrow set is small and
+    common, so the wide half loses a handful of direct codes.
+
     Ties break on the character itself so the same content always
     encodes to the same bytes — a build that changed its ROM when
     nothing changed would be impossible to diff.
     """
     counts = _count_characters(record_lists)
-    return ''.join(sorted(counts, key=lambda c: (-counts[c], c)))
+    is_wide = wide or (lambda character: False)
+    return ''.join(
+        sorted(counts, key=lambda c: (bool(is_wide(c)), -counts[c], c))
+    )
+
+
+def _wide_from(alphabet, wide):
+    """The first wide code; the alphabet's length when none is."""
+    if wide is None:
+        return len(alphabet)
+    for code, character in enumerate(alphabet):
+        if wide(character):
+            return code
+    return len(alphabet)
 
 
 def _layout_of(record_type):
@@ -220,22 +252,22 @@ def _layout_of(record_type):
     return layout, size
 
 
-def encode(records, endian):
+def encode(records, endian, wide=None):
     """Encode a list of dataclass instances into a record table.
 
     One store on its own: the same bytes `encode_many` gives it as
     the only store of a cartridge, which the text-marker examples
     pin against the record spec's content.
     """
-    return encode_many([records], endian).stores[0]
+    return encode_many([records], endian, wide).stores[0]
 
 
-def encode_many(record_lists, endian):
+def encode_many(record_lists, endian, wide=None):
     """Encode several lists of dataclass instances over one pool."""
     record_lists = [list(records) for records in record_lists]
     if not record_lists or any(not records for records in record_lists):
         raise ValueError('a record table needs at least one record')
-    alphabet = _alphabet_of(record_lists)
+    alphabet = _alphabet_of(record_lists, wide)
     if len(alphabet) > WIDEST:
         raise TooManyGlyphs(
             f'{len(alphabet)} distinct characters; the code names '
@@ -310,8 +342,11 @@ def encode_many(record_lists, endian):
 
     pool = bytes(pool)
     tables = bytes(tables)
+    wide_from = _wide_from(alphabet, wide)
     stores = [
-        RecordTable(body, pool, alphabet, layout, size, endian, tables)
+        RecordTable(
+            body, pool, alphabet, layout, size, endian, tables, wide_from
+        )
         for body, layout, size in bodies
     ]
-    return CartridgeText(alphabet, pool, tables, stores)
+    return CartridgeText(alphabet, pool, tables, stores, wide_from)

@@ -95,6 +95,23 @@ class RecordTableSpec:
     def assert_repeated_text_stored_once(self, text):
         raise NotImplementedError()
 
+    def given_records_with_a_width_rule(self):
+        """Content whose COMMONEST character is wide and whose
+        narrow characters are rarer, encoded with a rule that says
+        which characters are wide. Frequency alone would put the
+        wide one first; that is what makes the ordering observable."""
+        raise NotImplementedError()
+
+    def assert_codes_in_order(self, characters):
+        """The alphabet, in code order, exactly."""
+        raise NotImplementedError()
+
+    def assert_wide_boundary(self, code):
+        """The one number a renderer compares a code against:
+        every code below it is narrow, every code from it on is
+        wide."""
+        raise NotImplementedError()
+
     def assert_offset_byte_order(self, text):
         """The record pointing at `text` holds that text's real
         position in the pool, written in the platform's order.
@@ -184,6 +201,20 @@ class RecordTableSpec:
         self.when_encoding_is_refused()
 
         self.assert_refusal_names_the_limit()
+
+    def test_narrow_characters_take_the_low_codes(self):
+        """WIDTH IS A THRESHOLD, NOT A FLAG. The owner's original
+        cartridges told a narrow glyph from a wide one by comparing
+        its address with one label. Here every narrow character
+        takes a code below every wide one, and frequency orders each
+        half, so a renderer compares the code against one number and
+        carries no width table. The escape economy is kept inside
+        each half: the narrow set is small and common, so it costs
+        the wide half a handful of direct codes and no more."""
+        self.given_records_with_a_width_rule()
+        self.when_encoded()
+        self.assert_codes_in_order('ba\uac00')
+        self.assert_wide_boundary(2)
 
     def test_the_alphabet_holds_only_the_characters_used(self):
         self.given_records()

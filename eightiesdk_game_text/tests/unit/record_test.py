@@ -29,9 +29,6 @@ class RecordTableBinding(RecordTableSpec):
             Question('WHO?', ['2500', '2850'], 0),
         ]
 
-    def when_encoded(self):
-        self.table = encode(self.records, endian=self.endian)
-
     def assert_record_size(self, size):
         self.assertEqual(size, self.table.record_size)
 
@@ -96,6 +93,25 @@ class RecordTableBinding(RecordTableSpec):
             self.table.pool.count(encoded),
             f'{text!r} appears more than once in the pool',
         )
+
+    def given_records_with_a_width_rule(self):
+        # 가 four times, b twice, a once: frequency alone reads
+        # 가, b, a and the rule must put b, a before 가
+        self.records = [
+            Question('\uac00\uac00\uac00\uac00', ['b', 'ab'], 0),
+        ]
+        self.wide = lambda character: ord(character) >= 0x1000
+
+    def when_encoded(self):
+        self.table = encode(
+            self.records, endian=self.endian, wide=getattr(self, 'wide', None)
+        )
+
+    def assert_codes_in_order(self, characters):
+        self.assertEqual(characters, self.table.alphabet)
+
+    def assert_wide_boundary(self, code):
+        self.assertEqual(code, self.table.wide_from)
 
     def assert_offset_byte_order(self, text):
         encoded = bytes(self.table.alphabet.index(c) for c in text)
