@@ -70,6 +70,7 @@ from eightiesdk_platform.runtime_contribution import (
 from eightiesdk_game_text.glyphs import CELL_BYTES
 from eightiesdk_game_text.record import (
     DIRECT,
+    ESCAPE,
     TERMINATOR,
     _layout_of,
     _text_fields,
@@ -302,6 +303,33 @@ def _emit_pass(emit, mark, data, row_name, displacement, wide_from):
         ),
         f'{row_name}-end',
     )
+    # THE ESCAPE: a code past the direct range is written as the
+    # escape byte and a second byte, and reads back as the escape
+    # plus that byte, the way record.py wrote it
+    emit(
+        lambda o: COMPARE_IMMEDIATE_BYTE(Immediate(ESCAPE, width=1), D0, o),
+        f'{row_name}-escape?',
+    )
+    emit(
+        lambda o: CONDITION_BRANCH_SHORT(
+            'ne', LabelReference(f'{row_name}-direct'), o
+        ),
+        f'{row_name}-direct?',
+    )
+    emit(
+        lambda o: MOVE_QUICK(Immediate(0, width=1), D2, o),
+        f'{row_name}-clear-2',
+    )
+    emit(
+        lambda o: MOVE_BYTE(RegisterIndirect('A0', postincrement=True), D2, o),
+        f'{row_name}-second-byte',
+    )
+    emit(lambda o: MOVE_LONG(D2, D0, o), f'{row_name}-second-copy')
+    emit(
+        lambda o: ADD_IMMEDIATE_WORD(Immediate(DIRECT, width=2), D0, o),
+        f'{row_name}-escaped-code',
+    )
+    mark(f'{row_name}-direct')
     emit(lambda o: MOVE_LONG(A0, PUSH, o), f'{row_name}-keep-text')
     emit(lambda o: LEA(LabelReference('slots'), A0, o), f'{row_name}-slots')
     emit(lambda o: LSL_WORD(Immediate(2, width=1), D0, o), f'{row_name}-x4')
@@ -483,12 +511,6 @@ def text_runtime(
     """The contribution for one store on this console: `cartridge`
     encoded in this console's byte order, `table` the store's own
     record table in it, `record_type` the dataclass it holds."""
-    if len(cartridge.alphabet) > DIRECT:
-        raise ValueError(
-            f'{len(cartridge.alphabet)} distinct characters; this '
-            f'console draws direct codes only until the escape is '
-            f'drawn, {DIRECT} of them'
-        )
     if len(cartridge.pool) >= 0x8000:
         raise ValueError(
             f'the pool is {len(cartridge.pool)} bytes; this console adds '

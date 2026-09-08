@@ -78,6 +78,19 @@ class DrawnRecordSpec:
         self.when_the_game_asks_for(1, 2, 3)
         self.assert_drawn_at(2, 3, self.SECOND)
 
+    def given_a_cartridge_past_the_one_byte_alphabet(self):
+        """A store whose first record uses 254 distinct characters
+        and whose second uses two more: the pool writes those two as
+        an escape and a second byte, and the draw must read them the
+        same way. `ESCAPED` is the second record's text."""
+        raise NotImplementedError()
+
+    def test_a_character_past_the_one_byte_alphabet_is_drawn(self):
+        self.given_a_cartridge_past_the_one_byte_alphabet()
+        self.when_booted()
+        self.when_the_game_asks_for(1, 4, 2)
+        self.assert_drawn_at(4, 2, self.ESCAPED)
+
     def test_the_draw_fits_the_vblank_window(self):
         self.given_a_cartridge_with_the_two_records()
         self.when_booted()

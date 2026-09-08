@@ -73,15 +73,61 @@ def expanded(rows):
     return bytes(out)
 
 
+def bit_glyph(index):
+    """A narrow glyph nobody could mistake for another: its top
+    cell's rows are the index's bits, its bottom cell's their
+    complement."""
+    top = ''.join('X' if index & (0x80 >> bit) else '.' for bit in range(8))
+    bottom = ''.join('.' if c == 'X' else 'X' for c in top)
+    return '\n'.join([top] * 8 + [bottom] * 8)
+
+
+#: 256 distinct characters, each one narrow glyph
+MANY = ''.join(chr(0x100 + index) for index in range(256))
+MANY_FACE = Typeface.from_art(
+    {character: bit_glyph(index) for index, character in enumerate(MANY)}
+)
+
+
+#: declare() is read, not run: its arguments are names, so the two
+#: records are named here
+MANY_DIRECT = MANY[:254]
+MANY_ESCAPED = MANY[254:]
+
+
+class ManyGame(Game):
+    def declare(self):
+        self.text = TextStore(
+            [Line(MANY_DIRECT), Line(MANY_ESCAPED)], typeface=MANY_FACE
+        )
+
+    def init(self, ctx):
+        self.idle = 0
+
+    def update(self, ctx):
+        self.idle = 1
+
+    def render(self, frame):
+        frame.sprite(16, 16, tile=0)
+
+
 @skipUnless(musashi_available(), 'musashi library not built')
 class DrawnRecordOnMegaDriveTest(DrawnRecordSpec, TestCase):
-    def given_a_cartridge_with_the_two_records(self):
+    ESCAPED = MANY_ESCAPED
+
+    def _build(self, game, face, characters):
         from eightiesdk_platform_megadrive import builder
 
         self.cartridge, self.packager = builder.build_with_packager(
-            DrawnGame, None, extension_entries=(TextEntry(),)
+            game, None, extension_entries=(TextEntry(),)
         )
-        self.font = FACE.glyphs_for('ABW')
+        self.font = face.glyphs_for(characters)
+
+    def given_a_cartridge_with_the_two_records(self):
+        self._build(DrawnGame, FACE, 'ABW')
+
+    def given_a_cartridge_past_the_one_byte_alphabet(self):
+        self._build(ManyGame, MANY_FACE, MANY)
 
     def when_booted(self):
         park = self.packager.park_address
