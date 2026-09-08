@@ -107,7 +107,7 @@ def contribute_text(
     if not isinstance(declaration_owner, str) or not declaration_owner:
         raise ValueError('text contribution requires declaration_owner')
     _refuse_target_disagreement(target, build_state)
-    retain_claims = _port(build_state, 'with_resource_claims')
+    _port(build_state, 'with_resource_claims')
     _port(build_state, 'with_extension_contribution')
 
     previous = _previous(build_state)
@@ -187,6 +187,37 @@ def contribute_text(
             )
         ]
     glyph_stores = tuple(glyph_stores) + (glyphs,)
+    # A STORE DRAWN AT RUN TIME CLAIMS WHAT ITS RUNTIME PLACES. On a
+    # console with a text runtime the store is encoded ALONE, its own
+    # cells reserved, and the ledger reads the bytes the linker will
+    # lay down: pool and records as text, slot table, cells and the
+    # expansion table as glyphs, the two routines named beside them.
+    # The shared encoding above still measures what the languages
+    # have in common, for the consoles that stream a shared pool.
+    drawn = None
+    if glyphs is not None:
+        build_state, drawn = _drawn_at_runtime(
+            build_state, target, declaration_owner, request
+        )
+    if drawn is not None:
+        placed = {
+            section.name: len(section.content)
+            for section in drawn.rom_sections
+        }
+        text_spent = placed['pool'] + placed['records']
+        glyph_spent = placed['slots'] + placed['cells'] + placed['expand']
+        code_spent = placed['expand_code'] + placed['draw']
+        text_detail = (
+            f'eightiesdk-game-text draws {len(request.records)} records '
+            f'on {target.name} at run time: {placed["pool"]} pool bytes, '
+            f'{placed["records"]} record bytes'
+        )
+        glyph_detail = (
+            f'; glyphs: {placed["cells"]} cell bytes at 1bpp, '
+            f'{placed["slots"]} slot bytes, {placed["expand"]} expansion '
+            f'bytes; routines: {code_spent} bytes'
+        )
+        glyph_spent += code_spent
     # ONE CLAIM PER OWNER PER RESOURCE. The ledger refuses a second
     # claim from the same owner with different evidence, so the text
     # and the glyphs travel together and the split is carried as
@@ -199,17 +230,7 @@ def contribute_text(
         evidence=Evidence(MEASURED, text_detail + glyph_detail),
     )
     costs = (previous.costs if previous else ()) + ((text_spent, glyph_spent),)
-    claimed = retain_claims((claim,))
-    if glyphs is not None:
-        claimed = _drawn_at_runtime(
-            claimed,
-            target,
-            declaration_owner,
-            request,
-            stores,
-            wide,
-            glyphs,
-        )
+    claimed = _port(build_state, 'with_resource_claims')((claim,))
     retain_contribution = _port(claimed, 'with_extension_contribution')
     return retain_contribution(
         TextContribution(owners, stores, cartridge, glyph_stores, costs)
@@ -232,25 +253,30 @@ def _wide_rule(request, stores):
 RUNTIMES = {'megadrive': 'eightiesdk_game_text.megadrive.runtime'}
 
 
-def _drawn_at_runtime(
-    build_state, target, owner, request, stores, wide, glyphs
-):
+def _drawn_at_runtime(build_state, target, owner, request):
     """On a console with a runtime here, the store is drawn at run
-    time: the game gets its request bytes, the glyph cells a pattern
-    reservation, and the linker a contribution of code and data. On
-    any other console the store is claim-only, as before."""
+    time: encoded ALONE in that console's byte order, its own glyph
+    cells reserved in the pattern table, the game given its request
+    bytes, and the linker a contribution of code and data. Answers
+    (build state, contribution), or (build state, None) on any other
+    console, where the store is claim-only as before."""
     module_name = RUNTIMES.get(getattr(target, 'name', None))
     if module_name is None:
-        return build_state
+        return build_state, None
     from importlib import import_module
 
     runtime = import_module(module_name)
     configuration = getattr(build_state, 'configuration', None)
     if configuration is None:
-        return build_state
+        return build_state, None
+    used = ''.join(request.texts)
+    font = request.typeface.glyphs_for(used)
     cartridge = encode_many(
-        [store.records for store in stores], runtime.ENDIAN, wide
+        [request.records],
+        runtime.ENDIAN,
+        lambda character: font.glyph(character).columns > 1,
     )
+    glyphs = GlyphStore(font, used)
     reservation = configuration.allocate_pattern_reservation(
         owner=f'text:{owner}',
         count=len(glyphs.cells),
@@ -259,7 +285,7 @@ def _drawn_at_runtime(
     contribution = runtime.text_runtime(
         owner,
         cartridge,
-        cartridge.stores[-1],
+        cartridge.stores[0],
         type(request.records[0]),
         glyphs,
         configuration,
@@ -268,7 +294,8 @@ def _drawn_at_runtime(
     return (
         _port(build_state, 'with_pattern_reservation')(reservation)
         .with_compiler_inputs((runtime.request_state(owner),))
-        .with_runtime_contributions((contribution,))
+        .with_runtime_contributions((contribution,)),
+        contribution,
     )
 
 

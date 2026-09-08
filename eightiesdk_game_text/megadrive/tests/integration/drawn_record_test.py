@@ -111,8 +111,29 @@ class ManyGame(Game):
         frame.sprite(16, 16, tile=0)
 
 
+FIRST_RECORDS = [Line('AB')]
+SECOND_RECORDS = [Line('WA')]
+
+
+class TwoStoreGame(Game):
+    def declare(self):
+        self.first = TextStore(FIRST_RECORDS, typeface=FACE)
+        self.second = TextStore(SECOND_RECORDS, typeface=FACE)
+
+    def init(self, ctx):
+        self.idle = 0
+
+    def update(self, ctx):
+        self.idle = 1
+
+    def render(self, frame):
+        frame.sprite(16, 16, tile=0)
+
+
 @skipUnless(musashi_available(), 'musashi library not built')
 class DrawnRecordOnMegaDriveTest(DrawnRecordSpec, TestCase):
+    STORES = ('first', 'second')
+
     ESCAPED = MANY_ESCAPED
 
     def _build(self, game, face, characters):
@@ -128,6 +149,16 @@ class DrawnRecordOnMegaDriveTest(DrawnRecordSpec, TestCase):
 
     def given_a_cartridge_past_the_one_byte_alphabet(self):
         self._build(ManyGame, MANY_FACE, MANY)
+
+    def given_a_cartridge_with_two_stores(self):
+        self._build(TwoStoreGame, FACE, 'ABW')
+
+    def when_the_game_asks_store_for(self, store, index, row, column):
+        owner = self.STORES[store]
+        self._poke(f'{owner}_row', row)
+        self._poke(f'{owner}_column', column)
+        self._poke(f'{owner}_request', index)
+        self.when_a_frame_passes()
 
     def when_booted(self):
         park = self.packager.park_address

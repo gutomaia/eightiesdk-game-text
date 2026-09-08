@@ -91,6 +91,25 @@ class DrawnRecordSpec:
         self.when_the_game_asks_for(1, 4, 2)
         self.assert_drawn_at(4, 2, self.ESCAPED)
 
+    def given_a_cartridge_with_two_stores(self):
+        """Two stores over the same face, `FIRST` in the first and
+        `SECOND` in the second: each is its own owner with its own
+        request bytes, its own bytes on the cartridge and its own
+        cells in the pattern table, the way one language per bank
+        keeps them apart."""
+        raise NotImplementedError()
+
+    def when_the_game_asks_store_for(self, store, index, row, column):
+        raise NotImplementedError()
+
+    def test_each_store_draws_on_its_own_request(self):
+        self.given_a_cartridge_with_two_stores()
+        self.when_booted()
+        self.when_the_game_asks_store_for(0, 0, 2, 3)
+        self.assert_drawn_at(2, 3, self.FIRST)
+        self.when_the_game_asks_store_for(1, 0, 6, 3)
+        self.assert_drawn_at(6, 3, self.SECOND)
+
     def test_the_draw_fits_the_vblank_window(self):
         self.given_a_cartridge_with_the_two_records()
         self.when_booted()
