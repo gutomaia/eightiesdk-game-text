@@ -38,6 +38,7 @@ from eightiesdk_cpu_m68000.instructions import (
     ADD_WORD,
     AND_IMMEDIATE_WORD,
     BRA_SHORT,
+    BRA_WORD,
     COMPARE_IMMEDIATE_BYTE,
     COMPARE_IMMEDIATE_WORD,
     COMPARE_WORD,
@@ -71,6 +72,7 @@ from eightiesdk_game_text.glyphs import CELL_BYTES
 from eightiesdk_game_text.record import (
     DIRECT,
     ESCAPE,
+    LINE_BREAK,
     TERMINATOR,
     _layout_of,
     _text_fields,
@@ -303,6 +305,18 @@ def _emit_pass(emit, mark, data, row_name, displacement, wide_from):
         ),
         f'{row_name}-end',
     )
+    emit(
+        lambda o: COMPARE_IMMEDIATE_BYTE(
+            Immediate(LINE_BREAK, width=1), D0, o
+        ),
+        f'{row_name}-break?',
+    )
+    emit(
+        lambda o: CONDITION_BRANCH_SHORT(
+            'eq', LabelReference(f'{row_name}-done'), o
+        ),
+        f'{row_name}-break',
+    )
     # THE ESCAPE: a code past the direct range is written as the
     # escape byte and a second byte, and reads back as the escape
     # plus that byte, the way record.py wrote it
@@ -387,14 +401,22 @@ def _emit_pass(emit, mark, data, row_name, displacement, wide_from):
 def draw_routine(
     owner, configuration, names, record_size, text_offset, wide_from
 ):
-    """V-int hook: the requested record's first text, two plane rows."""
+    """V-int hook: the requested record's first text, two plane rows
+    per line, the next line two rows down at the same column."""
     if text_offset:
         raise ValueError(
             'this console draws a record whose first field is the text; '
             f'the text sits {text_offset} bytes in'
         )
     asm = ProgramAssembler(0, encoder=M68000Encoder())
-    for symbol in ('request', 'row', 'column', 'shadow', 'scratch'):
+    for symbol in (
+        'request',
+        'row',
+        'column',
+        'shadow',
+        'scratch',
+        'line_row',
+    ):
         asm.declare_external(symbol, target_kind='data')
     for symbol in ('pool', 'records', 'slots'):
         asm.declare_external(symbol, target_kind='data')
@@ -447,10 +469,14 @@ def draw_routine(
     emit(lambda o: MOVE_WORD(LabelReference('scratch'), D0, o), 'offset-in')
     emit(lambda o: LEA(LabelReference('pool'), A0, o), 'pool')
     emit(lambda o: ADD_ADDRESS_WORD(D0, A0, o), 'text')
-    # the top row's command: plane A + (row * 64 + column) * 2, then
-    # the address field and the write bit into the high word
+    # the first line's row, kept as a word the line loop advances
     emit(lambda o: MOVE_QUICK(Immediate(0, width=1), D0, o), 'clear-row')
     emit(lambda o: MOVE_BYTE(LabelReference('row'), D0, o), 'row')
+    emit(lambda o: MOVE_WORD(D0, LabelReference('line_row'), o), 'first-line')
+    asm.mark('line')
+    # this line's command: plane A + (row * 64 + column) * 2, then the
+    # address field and the write bit into the high word
+    emit(lambda o: MOVE_WORD(LabelReference('line_row'), D0, o), 'line-row')
     emit(lambda o: LSL_WORD(Immediate(7, width=1), D0, o), 'row-bytes')
     emit(lambda o: MOVE_QUICK(Immediate(0, width=1), D1, o), 'clear-column')
     emit(lambda o: MOVE_BYTE(LabelReference('column'), D1, o), 'column')
@@ -479,9 +505,9 @@ def draw_routine(
     )
     emit(lambda o: MOVE_LONG(D0, PUSH, o), 'keep-command')
     emit(lambda o: MOVE_LONG(D0, control, o), 'aim-top')
-    emit(lambda o: MOVE_LONG(A0, PUSH, o), 'keep-text')
+    emit(lambda o: MOVE_LONG(A0, PUSH, o), 'keep-line-start')
     _emit_pass(emit, asm.mark, data, 'top', 0, wide_from)
-    emit(lambda o: MOVE_ADDRESS_LONG(POP, A0, o), 'text-again')
+    emit(lambda o: MOVE_ADDRESS_LONG(POP, A0, o), 'line-start-again')
     emit(lambda o: MOVE_LONG(POP, D0, o), 'command-again')
     emit(lambda o: SWAP(D0, o), 'address-field')
     emit(
@@ -493,6 +519,32 @@ def draw_routine(
     emit(lambda o: SWAP(D0, o), 'command-field')
     emit(lambda o: MOVE_LONG(D0, control, o), 'aim-bottom')
     _emit_pass(emit, asm.mark, data, 'bottom', SLOT_WORDS, wide_from)
+    # the code that ended the bottom pass is still in D0: the
+    # terminator finishes, a line break moves two rows down
+    emit(
+        lambda o: COMPARE_IMMEDIATE_BYTE(
+            Immediate(TERMINATOR, width=1), D0, o
+        ),
+        'last-line?',
+    )
+    emit(
+        lambda o: CONDITION_BRANCH_SHORT('eq', LabelReference('finish'), o),
+        'last-line',
+    )
+    emit(
+        lambda o: MOVE_WORD(LabelReference('line_row'), D0, o),
+        'line-row-again',
+    )
+    emit(
+        lambda o: ADD_IMMEDIATE_WORD(Immediate(2, width=2), D0, o),
+        'two-rows-down',
+    )
+    emit(lambda o: MOVE_WORD(D0, LabelReference('line_row'), o), 'next-line')
+    # the word branch takes a displacement, relative to the word after
+    # its opcode; the line loop is past a short branch's reach
+    back = asm.labels['line'] - (len(asm.code) + 2)
+    emit(lambda o: BRA_WORD(back, o), 'draw-next-line')
+    asm.mark('finish')
     emit(lambda o: MOVE_ADDRESS_LONG(POP, A0, o), 'restore-a0')
     emit(lambda o: RTS(o), 'return')
     return asm.finish_linkable()
@@ -573,6 +625,9 @@ def text_runtime(
                 'shadow', 'work_ram', 2, bytes([0, NOTHING]), alignment=2
             ),
             RuntimeRamSection('scratch', 'work_ram', 2, bytes(2), alignment=2),
+            RuntimeRamSection(
+                'line_row', 'work_ram', 2, bytes(2), alignment=2
+            ),
         ),
         imports=tuple(
             RuntimeImport(symbol, owner, name, 1, 'read')

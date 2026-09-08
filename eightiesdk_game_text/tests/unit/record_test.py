@@ -75,7 +75,8 @@ class RecordTableBinding(RecordTableSpec):
         self.refusal = caught.exception
 
     def assert_refusal_names_the_limit(self):
-        self.assertIn('510', str(self.refusal))
+        # 253 direct, 256 escaped: the line break took one code
+        self.assertIn('509', str(self.refusal))
 
     def assert_text_of(self, index, field, text):
         self.assertEqual(text, self.table.read_text(index, field))
@@ -112,6 +113,19 @@ class RecordTableBinding(RecordTableSpec):
 
     def assert_wide_boundary(self, code):
         self.assertEqual(code, self.table.wide_from)
+
+    def given_records_with_a_line_break(self):
+        self.records = [Question('HOW\nTALL?', ['2744'], 0)]
+
+    def assert_the_line_break_is_one_code_and_no_glyph(self):
+        from eightiesdk_game_text.record import LINE_BREAK
+
+        self.assertNotIn('\n', self.table.alphabet)
+        offset = self.table.offset_of(0, 'ask')
+        end = self.table.pool.index(0xFF, offset)
+        self.assertEqual(len('HOW\nTALL?'), end - offset)
+        self.assertIn(LINE_BREAK, self.table.pool[offset:end])
+        self.assertEqual('HOW\nTALL?', self.table.read_text(0, 'ask'))
 
     def assert_offset_byte_order(self, text):
         encoded = bytes(self.table.alphabet.index(c) for c in text)

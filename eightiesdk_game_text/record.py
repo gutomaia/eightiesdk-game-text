@@ -37,7 +37,14 @@ TERMINATOR = 0xFF
 #: past the one-byte range. Two reserved bytes leave 254 codes for
 #: the common tier and 256 in the escaped one.
 ESCAPE = 0xFE
-DIRECT = 0xFE  # codes 0x00..0xFD are written as themselves
+#: a line break in the text: one control code beside the terminator
+#: and the escape, outside the alphabet, so no face is asked to draw
+#: it and a renderer starts the next line where it reads it. THE
+#: CALLER COMPOSES THE LINES: a game that knows its surface's width
+#: wraps where it wants and stores the break in the text.
+LINE_BREAK = 0xFD
+NEWLINE = '\n'
+DIRECT = 0xFD  # codes 0x00..0xFC are written as themselves
 WIDEST = DIRECT + 256
 
 
@@ -96,6 +103,9 @@ class RecordTable:
             if byte == ESCAPE:
                 out.append(self.alphabet[DIRECT + self.pool[at + 1]])
                 at += 2
+            elif byte == LINE_BREAK:
+                out.append(NEWLINE)
+                at += 1
             else:
                 out.append(self.alphabet[byte])
                 at += 1
@@ -196,6 +206,8 @@ def _count_characters(record_lists):
                     # str() because a marked value is a Text and a
                     # plain one is a str; both spell the same string
                     for character in str(text):
+                        if character == NEWLINE:
+                            continue
                         counts[character] = counts.get(character, 0) + 1
     return counts
 
@@ -272,11 +284,13 @@ def encode_many(record_lists, endian, wide=None):
         raise TooManyGlyphs(
             f'{len(alphabet)} distinct characters; the code names '
             f'{WIDEST} — {DIRECT} directly and 256 more behind an '
-            f'escape'
+            f'escape, and the line break takes one'
         )
     index_of = {char: n for n, char in enumerate(alphabet)}
 
     def code(character):
+        if character == NEWLINE:
+            return [LINE_BREAK]
         index = index_of[character]
         if index < DIRECT:
             return [index]

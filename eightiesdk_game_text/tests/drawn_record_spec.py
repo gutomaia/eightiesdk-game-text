@@ -28,6 +28,8 @@ class DrawnRecordSpec:
     #: a wide one followed by a narrow one
     FIRST = 'AB'
     SECOND = 'WA'
+    #: a record of two lines
+    LINES = 'AB\nWA'
 
     def given_a_cartridge_with_the_two_records(self):
         raise NotImplementedError()
@@ -109,6 +111,21 @@ class DrawnRecordSpec:
         self.assert_drawn_at(2, 3, self.FIRST)
         self.when_the_game_asks_store_for(1, 0, 6, 3)
         self.assert_drawn_at(6, 3, self.SECOND)
+
+    def given_a_cartridge_with_a_two_line_record(self):
+        """One store whose record is `LINES`: two lines, the break
+        stored in the text by the game that composed it."""
+        raise NotImplementedError()
+
+    def test_a_line_break_continues_two_rows_down(self):
+        """A glyph is two rows tall, so the next line's top row is
+        two below this one's, at the column the text started on."""
+        self.given_a_cartridge_with_a_two_line_record()
+        self.when_booted()
+        self.when_the_game_asks_for(0, 3, 5)
+        first, second = self.LINES.split('\n')
+        self.assert_drawn_at(3, 5, first)
+        self.assert_drawn_at(5, 5, second)
 
     def test_the_draw_fits_the_vblank_window(self):
         self.given_a_cartridge_with_the_two_records()

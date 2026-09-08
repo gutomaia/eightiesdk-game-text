@@ -34,7 +34,7 @@ from eightiesdk_resources.resource_plan import (
 )
 
 from eightiesdk_game_text.glyphs import GlyphStore
-from eightiesdk_game_text.record import encode_many
+from eightiesdk_game_text.record import NEWLINE, encode_many
 
 #: the resource every extension in this fleet charges cartridge bytes
 #: to, so one ledger can add them up
@@ -161,7 +161,7 @@ def contribute_text(
         ]
         earlier_owners = [owner for owner, _store in earlier]
         before = _glyphs_of(previous, request.typeface)
-        used = ''.join(
+        used = _drawn_characters(
             text
             for store in [store for _owner, store in earlier] + [request]
             for text in store.texts
@@ -243,7 +243,7 @@ def _wide_rule(request, stores):
     number; None when no face is declared."""
     if request.typeface is None:
         return None
-    used = ''.join(text for store in stores for text in store.texts)
+    used = _drawn_characters(text for store in stores for text in store.texts)
     font = request.typeface.glyphs_for(used)
     return lambda character: font.glyph(character).columns > 1
 
@@ -269,7 +269,7 @@ def _drawn_at_runtime(build_state, target, owner, request):
     configuration = getattr(build_state, 'configuration', None)
     if configuration is None:
         return build_state, None
-    used = ''.join(request.texts)
+    used = _drawn_characters(request.texts)
     font = request.typeface.glyphs_for(used)
     cartridge = encode_many(
         [request.records],
@@ -297,6 +297,12 @@ def _drawn_at_runtime(build_state, target, owner, request):
         .with_runtime_contributions((contribution,)),
         contribution,
     )
+
+
+def _drawn_characters(texts):
+    """Every character a face is asked for: the line break is a code
+    the renderer reads, not a glyph."""
+    return ''.join(text for text in texts).replace(NEWLINE, '')
 
 
 def _texts(stores):

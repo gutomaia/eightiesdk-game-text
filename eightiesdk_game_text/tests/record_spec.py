@@ -112,6 +112,15 @@ class RecordTableSpec:
         wide."""
         raise NotImplementedError()
 
+    def given_records_with_a_line_break(self):
+        """A record whose text holds a newline between two words."""
+        raise NotImplementedError()
+
+    def assert_the_line_break_is_one_code_and_no_glyph(self):
+        """The newline costs one byte in the pool, is not in the
+        alphabet (nothing draws it), and reads back as itself."""
+        raise NotImplementedError()
+
     def assert_offset_byte_order(self, text):
         """The record pointing at `text` holds that text's real
         position in the pool, written in the platform's order.
@@ -215,6 +224,17 @@ class RecordTableSpec:
         self.when_encoded()
         self.assert_codes_in_order('ba\uac00')
         self.assert_wide_boundary(2)
+
+    def test_a_line_break_is_a_code_and_not_a_glyph(self):
+        """THE CALLER COMPOSES THE LINES. A game that knows its
+        surface's width wraps its text where it wants and stores the
+        break in the text; the store keeps it as one control code
+        beside the terminator and the escape, outside the alphabet,
+        so no face is asked to draw it and a renderer starts the next
+        line where it reads it."""
+        self.given_records_with_a_line_break()
+        self.when_encoded()
+        self.assert_the_line_break_is_one_code_and_no_glyph()
 
     def test_the_alphabet_holds_only_the_characters_used(self):
         self.given_records()
