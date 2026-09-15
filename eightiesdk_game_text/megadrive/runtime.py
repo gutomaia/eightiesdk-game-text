@@ -194,10 +194,6 @@ def _origin(owner, section, role):
     )
 
 
-def _register(name):
-    return RegisterOperand(name)
-
-
 # THE ENCODER'S PALETTE. The typed 68000 encoder accepts the operand
 # forms the fleet has needed and refuses the rest by name: A0 is the
 # one address register a label loads into, a byte loads into D0 or
