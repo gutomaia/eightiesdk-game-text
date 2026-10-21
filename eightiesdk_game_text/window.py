@@ -462,6 +462,20 @@ class TextWindow:
             fitted._tiles, fitted._index = fitted._tile_set()
         return fitted
 
+    def revealed_by_cell(self):
+        """This window typing only finished cells (see PixelFont): the
+        same pages and steps for fewer tiles, what a console short of
+        tile names falls back to. A cell font's window is itself."""
+        if not self.packed or self.font.reveal == 'cell':
+            return self
+        font = self.font
+        cellwise = copy(self)
+        cellwise.font = PixelFont(
+            font.glyphs, widths=font.widths, rows=font.rows, reveal='cell'
+        )
+        cellwise._tiles, cellwise._index = cellwise._tile_set()
+        return cellwise
+
     def scroll_for(self, screen):
         """The scroll with its positions resolved for `screen` (a
         camera limit is a number the build resolves per console); on
