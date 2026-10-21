@@ -253,3 +253,39 @@ class RetryNotesTest(TestCase):
                 attempt, lambda e: 'full' in str(e), notes=notes
             )
         self.assertEqual(['attempt 2'], [n.compromise for n in notes])
+
+
+class RetryOnlyWithAFallbackTest(TestCase):
+    """The director retries any refusal, but only a build that drew a
+    window with a fallback left: a game with no packed text, or one
+    already at its last fallback, is refused at once."""
+
+    def test_a_build_drawing_no_packed_window_is_not_retried(self):
+        from eightiesdk_game_text.window import retry_with_fallbacks
+
+        tries = []
+
+        def attempt():
+            tries.append(1)
+            raise ValueError('room')
+
+        with self.assertRaises(ValueError):
+            retry_with_fallbacks(attempt)
+        self.assertEqual(1, len(tries))
+
+    def test_a_build_drawing_a_packed_window_is_retried_to_its_last(self):
+        from types import SimpleNamespace
+
+        from eightiesdk_game_text.window import retry_with_fallbacks
+
+        w = window(messages=('AB A B',), columns=4, rows=3)
+        screen = SimpleNamespace(width=256, height=224)
+        drawn = []
+
+        def attempt():
+            drawn.append(w.drawn_for(screen)[0])
+            raise ValueError('room')
+
+        with self.assertRaises(ValueError):
+            retry_with_fallbacks(attempt)
+        self.assertEqual(3, len(drawn))
