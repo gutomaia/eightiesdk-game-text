@@ -231,3 +231,23 @@ class FallbackRetryTest(TestCase):
 
         with self.assertRaises(KeyError):
             retry_with_fallbacks(attempt, lambda e: False)
+
+
+class RetryNotesTest(TestCase):
+    def test_a_failed_attempt_s_port_notes_are_dropped(self):
+        from eightiesdk_runtime.port_notes import collecting, compromise
+
+        from eightiesdk_game_text.window import retry_with_fallbacks
+
+        tries = []
+
+        def attempt():
+            tries.append(1)
+            compromise(f'attempt {len(tries)}')
+            if len(tries) < 2:
+                raise ValueError('full')
+            return 'rom'
+
+        with collecting() as notes:
+            retry_with_fallbacks(attempt, lambda e: 'full' in str(e))
+        self.assertEqual(['attempt 2'], [n.compromise for n in notes])
