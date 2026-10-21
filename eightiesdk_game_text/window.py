@@ -25,6 +25,7 @@ Everything a console needs follows from that, here and console-free:
 Nothing here knows a console, a layer or a CPU.
 """
 
+from copy import copy
 from dataclasses import dataclass, fields
 
 CELL = 8
@@ -305,6 +306,31 @@ class TextWindow:
             ends.append(ends[-1] + len(self.reveal(page)) - self.rows + 1)
         return tuple(ends)
 
+    def fitted_for(self, screen):
+        """This window as a screen of `screen.width` x `screen.height`
+        pixels holds it: narrowed (its messages rewrap) and moved left
+        to stay on the screen, shortened to its rows. A window the
+        screen holds is returned as it is. Where it sits vertically is
+        the console's to resolve (a window may be raised to fit)."""
+        if screen is None:
+            return self
+        screen_columns, screen_rows = screen.width // 8, screen.height // 8
+        columns = min(self.columns, screen_columns)
+        rows = min(self.rows, screen_rows)
+        column = max(0, min(self.column, screen_columns - columns))
+        if (columns, rows, column) == (self.columns, self.rows, self.column):
+            return self
+        fitted = copy(self)
+        fitted.columns, fitted.rows, fitted.column = columns, rows, column
+        for message in fitted.messages:
+            fitted.pages(message)  # a word wider than the window refuses
+        return fitted
+
+    def page_end(self, page):
+        """The step at which `page` of message 0 is whole, on the
+        screen of the console the build is for (see PageEnd)."""
+        return PageEnd(self, page)
+
     def step_runs(self, message=0):
         """Every step as its write_runs: what a console's vblank drains,
         reached through the field so a resolver imports nothing."""
@@ -329,6 +355,21 @@ class TextWindow:
             for r, c, tile in writes:
                 grid[r - self.row][c - self.column] = tile
         return grid
+
+
+class PageEnd:
+    """A page end the build resolves for its console: the game
+    declares `PAGE = window.page_end(0)` once, and every console reads
+    it from the window fitted to its own screen."""
+
+    def __init__(self, window, page):
+        self.window, self.page = window, page
+
+    def __eightiesdk_resolve__(self, screen):
+        return self.window.fitted_for(screen).page_ends[self.page]
+
+    def __repr__(self):
+        return f'PageEnd(page={self.page})'
 
 
 def write_runs(writes):
@@ -358,6 +399,7 @@ def window_tiles(window):
 __all__ = [
     'CellFont',
     'NineSlice',
+    'PageEnd',
     'TextWindow',
     'window_tiles',
     'write_runs',

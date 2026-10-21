@@ -39,7 +39,7 @@ class FittedWindowTest(TestCase):
 
 class PageEndTest(TestCase):
     def test_a_page_end_resolves_against_the_console_screen(self):
-        declared = window(columns=7, rows=6, messages=('AB CD E',))
+        declared = window(columns=7, rows=4, messages=('AB CD E',))
         end = declared.page_end(0)
         narrow = declared.fitted_for(screen(48, 64))
         self.assertEqual(
