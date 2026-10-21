@@ -198,7 +198,7 @@ class TextWindow:
         self.unroll_frames, self.type_frames = unroll_frames, type_frames
         for message in self.messages:
             for character in message:
-                if character not in font:
+                if character != '\n' and character not in font:
                     raise ValueError(
                         f'the window font draws no glyph for {character!r}'
                     )
@@ -219,7 +219,7 @@ class TextWindow:
         seen = {}
         for message in self.messages:
             for character in message:
-                if character != SPACE:
+                if character not in (SPACE, '\n'):
                     seen.setdefault(character, None)
         return tuple(seen)
 
@@ -342,6 +342,16 @@ class TextWindow:
         return len(text), self.inner_columns
 
     def pages(self, message):
+        lines = []
+        for said in message.split('\n'):
+            lines.extend(self._wrapped(said))
+        n = self.lines_per_page
+        return tuple(
+            tuple(lines[i : i + n]) for i in range(0, len(lines), n)
+        ) or ((),)
+
+    def _wrapped(self, message):
+        """One said line wrapped to the inner width."""
         lines, line = [], ''
         for word in message.split():
             if self._measure(word)[0] > self._measure(word)[1]:
@@ -355,10 +365,7 @@ class TextWindow:
                 line = word
         if line:
             lines.append(line)
-        n = self.lines_per_page
-        return tuple(
-            tuple(lines[i : i + n]) for i in range(0, len(lines), n)
-        ) or ((),)
+        return lines
 
     # -- the reveal ------------------------------------------------------
     def _border_row(self, y):
