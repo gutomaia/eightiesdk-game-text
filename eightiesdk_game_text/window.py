@@ -503,15 +503,21 @@ class PageEnd(int):
     (a script run on the host) it is the declared window's number."""
 
     def __new__(cls, window, page):
-        end = super().__new__(cls, window.page_ends[page])
+        end = super().__new__(cls, _clamped(window.page_ends, page))
         end.window, end.page = window, page
         return end
 
     def __eightiesdk_resolve__(self, screen):
-        return self.window.fitted_for(screen).page_ends[self.page]
+        return _clamped(self.window.fitted_for(screen).page_ends, self.page)
 
     def __repr__(self):
         return f'PageEnd(page={self.page}, declared={int(self)})'
+
+
+def _clamped(ends, page):
+    """A page past the last is the last: the same script reads a page
+    a wider screen does not have."""
+    return ends[min(page, len(ends) - 1)]
 
 
 def write_runs(writes):
