@@ -160,3 +160,38 @@ class RevealedByCellTest(TestCase):
 
         w = window(font=CellFont({'A': (bar(3),)}, rows=1), messages=('A',))
         self.assertIs(w, w.revealed_by_cell())
+
+
+class FallbacksTest(TestCase):
+    """The best a console can draw, in order: a glyph a step, finished
+    cells, then the glyphs one cell each. The one a console settles on
+    is the one its script's page ends read."""
+
+    def test_the_fallbacks_go_glyph_cell_fixed(self):
+        from types import SimpleNamespace
+
+        w = window(messages=('ABAB AB',), columns=6, rows=4)
+        screen = SimpleNamespace(width=256, height=224)
+        found = w.fallbacks(screen)
+        self.assertEqual(3, len(found))
+        (first, none), (second, cell_note), (third, fixed_note) = found
+        self.assertIsNone(none)
+        self.assertEqual('glyph', first.font.reveal)
+        self.assertEqual('cell', second.font.reveal)
+        self.assertIn('finished cell', cell_note)
+        self.assertNotIsInstance(third.font, PixelFont)
+        self.assertIn('one cell', fixed_note)
+
+    def test_a_page_end_reads_the_window_a_console_settled_on(self):
+        from types import SimpleNamespace
+
+        w = window(messages=('AB A B',), columns=4, rows=3)
+        screen = SimpleNamespace(width=256, height=224)
+        end = w.page_end(-1)
+        packed = end.__eightiesdk_resolve__(screen)
+        *_, (fixed, _note) = w.fallbacks(screen)
+        w.settle(screen, fixed)
+        self.assertEqual(fixed.page_ends[-1], end.__eightiesdk_resolve__(screen))
+        self.assertNotEqual(packed, fixed.page_ends[-1])
+        other = SimpleNamespace(width=256, height=224)
+        self.assertEqual(packed, end.__eightiesdk_resolve__(other))
