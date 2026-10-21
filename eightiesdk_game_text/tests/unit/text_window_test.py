@@ -111,3 +111,33 @@ class TextWindowTest(TestCase):
 
     def test_the_tile_count_is_measured(self):
         self.assertEqual(1 + 8 + 10, window().tile_count)
+
+
+class TextWindowStreamTest(TestCase):
+    """The whole message as one stream a console's vblank drains."""
+
+    def test_it_is_a_field_a_band_can_carry(self):
+        w = window()
+        self.assertEqual('text-window', w.kind)
+        self.assertEqual((6, 6), (w.width, w.height))
+        self.assertEqual(0, w.value)
+        w.value = 3
+        self.assertEqual(3, w.value)
+
+    def test_a_later_page_starts_by_refilling_the_inside(self):
+        w = window(messages=('AB CD ED E',))
+        steps = w.steps()
+        first, second = w.page_ends
+        self.assertEqual(6 + 4, first)
+        refill = steps[first]
+        self.assertEqual(
+            {(r, c) for r in (3, 4, 5, 6) for c in (2, 3, 4, 5)},
+            {(r, c) for r, c, t in refill},
+        )
+        self.assertTrue(all(t == 0 for r, c, t in refill))
+        self.assertEqual(first + 1 + 3, second)
+        self.assertEqual(second, len(steps))
+
+    def test_closing_clears_every_window_cell(self):
+        w = window()
+        self.assertEqual(36, len(w.window_cells()))
