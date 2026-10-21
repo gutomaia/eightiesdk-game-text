@@ -357,19 +357,22 @@ class TextWindow:
         return grid
 
 
-class PageEnd:
+class PageEnd(int):
     """A page end the build resolves for its console: the game
     declares `PAGE = window.page_end(0)` once, and every console reads
-    it from the window fitted to its own screen."""
+    it from the window fitted to its own screen. Where no console is
+    (a script run on the host) it is the declared window's number."""
 
-    def __init__(self, window, page):
-        self.window, self.page = window, page
+    def __new__(cls, window, page):
+        end = super().__new__(cls, window.page_ends[page])
+        end.window, end.page = window, page
+        return end
 
     def __eightiesdk_resolve__(self, screen):
         return self.window.fitted_for(screen).page_ends[self.page]
 
     def __repr__(self):
-        return f'PageEnd(page={self.page})'
+        return f'PageEnd(page={self.page}, declared={int(self)})'
 
 
 def write_runs(writes):
