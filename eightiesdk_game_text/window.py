@@ -38,6 +38,8 @@ _FALLBACK = ContextVar('text_window_fallback', default=0)
 #: whether the attempt in progress drew a window with a fallback below
 #: the one it drew (a list the retry sets per attempt; None outside one)
 _LOWER = ContextVar('text_window_has_lower_fallback', default=None)
+#: the port notes of the windows the attempt drew below their best
+_SAID = ContextVar('text_window_fallback_notes', default=None)
 
 
 @dataclass(frozen=True)
@@ -504,18 +506,22 @@ class TextWindow:
         found = [(fitted, None)]
         cellwise = fitted.revealed_by_cell()
         if cellwise is not fitted:
-            found.append((
-                cellwise,
-                'the variable-width text is typed a finished cell at a '
-                'time, not a glyph at a time',
-            ))
+            found.append(
+                (
+                    cellwise,
+                    'the variable-width text is typed a finished cell at a '
+                    'time, not a glyph at a time',
+                )
+            )
         fixed = fitted.fixed()
         if fixed is not fitted:
-            found.append((
-                fixed,
-                'the variable-width text is drawn one cell a glyph (fixed '
-                'width) and rewraps',
-            ))
+            found.append(
+                (
+                    fixed,
+                    'the variable-width text is drawn one cell a glyph (fixed '
+                    'width) and rewraps',
+                )
+            )
         return tuple(found)
 
     def settle(self, screen, window):
@@ -541,6 +547,9 @@ class TextWindow:
         lower = _LOWER.get()
         if lower is not None and level < len(found) - 1:
             lower.append(self)
+        said = _SAID.get()
+        if said is not None and found[level][1]:
+            said.setdefault(found[level][1], None)
         return found[level]
 
     def scroll_for(self, screen):
@@ -596,30 +605,34 @@ class PageEnd(int):
         return end
 
     def __eightiesdk_resolve__(self, screen):
-        return _clamped(
-            self.window.settled_for(screen).page_ends, self.page
-        )
+        return _clamped(self.window.settled_for(screen).page_ends, self.page)
 
     def __repr__(self):
         return f'PageEnd(page={self.page}, declared={int(self)})'
 
 
-def retry_with_fallbacks(attempt, ran_out=None, levels=2, notes=None):
+def retry_with_fallbacks(
+    attempt, ran_out=None, levels=2, notes=None, told=None
+):
     """attempt(), built again with every text window a fallback lower
     (TextWindow.fallbacks) while it fails and drew a window with a
     fallback left: a console learns it ran out of names, pattern bytes
     or its code window only once the window is laid out. `ran_out`
     narrows the failures retried (default: any). A build that fits is
     never built another way. `notes` (the build's port-note list) loses
-    what a failed attempt said."""
+    what a failed attempt said; `told(note)` hears, once each, what the
+    windows of the build that fit gave up."""
     first = _FALLBACK.get()
     for level in range(first, levels + 1):
         token = _FALLBACK.set(level)
-        lower = []
-        lowered = _LOWER.set(lower)
+        lower, said = [], {}
+        lowered, saying = _LOWER.set(lower), _SAID.set(said)
         kept = len(notes) if notes is not None else 0
         try:
-            return attempt()
+            built = attempt()
+            for note in said if told is not None else ():
+                told(note)
+            return built
         except Exception as error:
             if not lower or (ran_out is not None and not ran_out(error)):
                 raise
@@ -627,6 +640,7 @@ def retry_with_fallbacks(attempt, ran_out=None, levels=2, notes=None):
                 # the build it said them of is not the one that ships
                 del notes[kept:]
         finally:
+            _SAID.reset(saying)
             _LOWER.reset(lowered)
             _FALLBACK.reset(token)
 
