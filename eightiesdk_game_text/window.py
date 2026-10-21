@@ -122,7 +122,28 @@ class TextWindow:
         unroll_frames=1,
         type_frames=1,
         fill=None,
+        scroll=None,
     ):
+        if scroll is not None:
+            scroll = tuple(scroll)
+            if (
+                len(scroll) != 3
+                or not isinstance(scroll[0], str)
+                or any(
+                    isinstance(v, bool) or not isinstance(v, int)
+                    for v in scroll[1:]
+                )
+                or scroll[1] > scroll[2]
+            ):
+                raise ValueError(
+                    'a text window scroll is (variable, first, last): the '
+                    'camera variable it opens under and the first and '
+                    'last position the camera can be at'
+                )
+        #: PLACED RELATIVE TO THE CAMERA'S SCROLL AT OPEN: the window's
+        #: row and column are on the screen, and a console whose camera
+        #: moves the plane draws it where the scroll is when it opens
+        self.scroll = scroll
         if columns < 3 or rows < 2 + font.rows:
             raise ValueError(
                 f'a {columns}x{rows} window has no room inside its border '
@@ -325,6 +346,23 @@ class TextWindow:
         for message in fitted.messages:
             fitted.pages(message)  # a word wider than the window refuses
         return fitted
+
+    def scroll_for(self, screen):
+        """The scroll with its positions resolved for `screen` (a
+        camera limit is a number the build resolves per console); on
+        the host, the declared numbers."""
+        if self.scroll is None:
+            return None
+        variable, *limits = self.scroll
+        return (variable,) + tuple(
+            (
+                type(v).__eightiesdk_resolve__(v, screen)
+                if screen is not None
+                and hasattr(type(v), '__eightiesdk_resolve__')
+                else int(v)
+            )
+            for v in limits
+        )
 
     def page_end(self, page):
         """The step at which `page` of message 0 is whole, on the
