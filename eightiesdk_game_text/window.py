@@ -50,11 +50,23 @@ class NineSlice:
             rows = getattr(self, f.name)
             if len(rows) != CELL or any(len(r) != CELL for r in rows):
                 raise ValueError(f'border cell {f.name!r} is not 8x8')
-        if any(p[3] != 255 for row in self.fill for p in row):
-            raise ValueError(
-                'the border fill must be solid: the inside of the window '
-                'is opaque'
-            )
+
+
+@dataclass(frozen=True)
+class Transparent:
+    """The window's inside shows what is under it.
+
+    A console whose window is a layer of its own (colour 0 draws
+    nothing) shows the room through; one whose window replaces the
+    room's cells paints the inside `fallback` (an RGB colour) and says
+    so in its port notes."""
+
+    fallback: tuple
+
+
+_CLEAR_CELL = tuple(
+    tuple((0, 0, 0, 0) for _ in range(CELL)) for _ in range(CELL)
+)
 
 
 class CellFont:
@@ -108,6 +120,7 @@ class TextWindow:
         messages,
         unroll_frames=1,
         type_frames=1,
+        fill=None,
     ):
         if columns < 3 or rows < 2 + font.rows:
             raise ValueError(
@@ -116,6 +129,17 @@ class TextWindow:
             )
         self.column, self.row = column, row
         self.columns, self.rows = columns, rows
+        #: None: the border's own fill cell; Transparent: a clear inside
+        self.fill = fill
+        if isinstance(fill, Transparent):
+            border = NineSlice(
+                **{
+                    **{
+                        f.name: getattr(border, f.name) for f in fields(border)
+                    },
+                    'fill': _CLEAR_CELL,
+                }
+            )
         self.border, self.font = border, font
         self.messages = tuple(messages)
         self.unroll_frames, self.type_frames = unroll_frames, type_frames
@@ -167,6 +191,24 @@ class TextWindow:
     @property
     def tiles(self):
         return self._tiles
+
+    @property
+    def see_through(self):
+        """Whether the inside is declared transparent."""
+        return isinstance(self.fill, Transparent)
+
+    @property
+    def opaque_tiles(self):
+        """The tiles with every clear pixel the declared fallback: what
+        a console draws when the window replaces the room's cells. An
+        opaque window's are its tiles."""
+        if not self.see_through:
+            return self._tiles
+        colour = (*tuple(self.fill.fallback)[:3], 255)
+        return tuple(
+            tuple(tuple(p if p[3] else colour for p in row) for row in tile)
+            for tile in self._tiles
+        )
 
     @property
     def tile_count(self):
