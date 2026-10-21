@@ -56,3 +56,11 @@ class PageEndTest(TestCase):
             declared.page_ends[0],
             declared.page_end(0).__eightiesdk_resolve__(None),
         )
+
+
+class PageEndOnTheHostTest(TestCase):
+    def test_a_page_end_is_the_declared_number_where_no_console_is(self):
+        declared = window()
+        end = declared.page_end(0)
+        self.assertEqual(declared.page_ends[0], end)
+        self.assertEqual(declared.page_ends[0] + 1, end + 1)
