@@ -294,3 +294,27 @@ class RetryOnlyWithAFallbackTest(TestCase):
         with self.assertRaises(ValueError):
             retry_with_fallbacks(attempt)
         self.assertEqual(3, len(drawn))
+
+
+class RetryToldTest(TestCase):
+    def test_the_build_that_fit_tells_what_its_windows_gave_up(self):
+        from types import SimpleNamespace
+
+        from eightiesdk_game_text.window import retry_with_fallbacks
+
+        w = window(messages=('AB A B',), columns=4, rows=3)
+        screen = SimpleNamespace(width=256, height=224)
+        told = []
+
+        def attempt():
+            w.drawn_for(screen)
+            w.drawn_for(screen)
+            if not told and len(attempt.n) < 1:
+                attempt.n.append(1)
+                raise ValueError('room')
+            return 'rom'
+
+        attempt.n = []
+        retry_with_fallbacks(attempt, told=told.append)
+        self.assertEqual(1, len(told))
+        self.assertIn('finished cell', told[0])
