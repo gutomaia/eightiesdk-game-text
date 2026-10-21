@@ -91,6 +91,8 @@ class TextWindow:
     """A window of cells that border-unrolls, then types its message."""
 
     __eightiesdk_declaration__ = 'text_window'
+    #: carried as a band field: the value is the steps drawn so far
+    kind = 'text-window'
 
     def __init__(
         self,
@@ -122,6 +124,16 @@ class TextWindow:
                         f'the window font draws no glyph for {character!r}'
                     )
         self._tiles, self._index = self._tile_set()
+        #: steps the game asks to be drawn; 0 is no window
+        self.value = 0
+
+    @property
+    def width(self):
+        return self.columns
+
+    @property
+    def height(self):
+        return self.rows
 
     # -- the tile set ----------------------------------------------------
     def _used(self):
@@ -222,6 +234,41 @@ class TextWindow:
                 )
         return tuple(steps)
 
+    def _refill(self):
+        fill = self.tile_of('fill')
+        return tuple(
+            (self.row + y, self.column + x, fill)
+            for y in range(1, self.rows - 1)
+            for x in range(1, self.columns - 1)
+        )
+
+    def steps(self, message=0):
+        """Every step of a message: page one's reveal, then for each
+        later page one step refilling the inside and its glyphs."""
+        pages = self.pages(self.messages[message])
+        steps = list(self.reveal(pages[0]))
+        for page in pages[1:]:
+            steps.append(self._refill())
+            steps.extend(self.reveal(page)[self.rows :])
+        return tuple(steps)
+
+    @property
+    def page_ends(self):
+        """The step count at which each page of message 0 is whole."""
+        pages = self.pages(self.messages[0])
+        ends = [len(self.reveal(pages[0]))]
+        for page in pages[1:]:
+            ends.append(ends[-1] + len(self.reveal(page)) - self.rows + 1)
+        return tuple(ends)
+
+    def window_cells(self):
+        """Every (row, column) the window covers: what closing clears."""
+        return tuple(
+            (self.row + y, self.column + x)
+            for y in range(self.rows)
+            for x in range(self.columns)
+        )
+
     def cells(self, page, step):
         """The window's cells after `step` steps (None: not drawn)."""
         grid = [[None] * self.columns for _ in range(self.rows)]
@@ -231,8 +278,34 @@ class TextWindow:
         return grid
 
 
+def write_runs(writes):
+    """THE CELL-WRITE QUEUE a console's vblank drains, console-free.
+
+    A step's (row, column, tile) writes as (row, column, tile, count)
+    runs: consecutive cells of one row showing one tile are one run,
+    so a border row is three runs and a glyph one run per cell. A
+    console maps (row, column) to its layer's address and the tile to
+    its own word, and writes each run with its auto-increment.
+    """
+    runs = []
+    for row, column, tile in sorted(writes):
+        if runs:
+            r, c, t, n = runs[-1]
+            if r == row and t == tile and c + n == column:
+                runs[-1] = (r, c, t, n + 1)
+                continue
+        runs.append((row, column, tile, 1))
+    return tuple(runs)
+
+
 def window_tiles(window):
     return window.tiles
 
 
-__all__ = ['CellFont', 'NineSlice', 'TextWindow', 'window_tiles']
+__all__ = [
+    'CellFont',
+    'NineSlice',
+    'TextWindow',
+    'window_tiles',
+    'write_runs',
+]
