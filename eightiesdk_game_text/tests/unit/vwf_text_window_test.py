@@ -128,3 +128,16 @@ class PageCountPerConsoleTest(TestCase):
         self.assertEqual(1, len(w.page_ends))
         self.assertEqual(w.page_ends[0], w.page_end(1))
         self.assertEqual(w.page_ends[0], w.page_end(-1))
+
+
+class HardBreakTest(TestCase):
+    """A message says where its lines break (ALttP's [2], [3]); a
+    narrower window still wraps inside a line."""
+
+    def test_a_newline_starts_a_line(self):
+        w = window(columns=6, rows=3)  # one line a page
+        self.assertEqual((('A',), ('AB',)), w.pages('A\nAB'))
+
+    def test_a_line_too_long_still_wraps(self):
+        w = window(columns=4, rows=4)  # inner 16 px, two lines a page
+        self.assertEqual((('A', 'AB A'), ('B',)), w.pages('A\nAB A B'))
