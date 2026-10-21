@@ -25,11 +25,16 @@ Everything a console needs follows from that, here and console-free:
 Nothing here knows a console, a layer or a CPU.
 """
 
+from contextvars import ContextVar
 from copy import copy
 from dataclasses import dataclass, fields
 
 CELL = 8
 SPACE = ' '
+
+#: how many fallbacks down the build in progress draws its windows
+#: (see retry_with_fallbacks): 0 is the best each console can draw
+_FALLBACK = ContextVar('text_window_fallback', default=0)
 
 
 @dataclass(frozen=True)
@@ -523,7 +528,14 @@ class TextWindow:
         screen_window = self.__dict__.get('_settled', {}).get(id(screen))
         if screen_window is not None and screen_window[0] is screen:
             return screen_window[1]
-        return self.fitted_for(screen)
+        return self.drawn_for(screen)[0]
+
+    def drawn_for(self, screen):
+        """(window, port note) the build in progress draws for
+        `screen`: its fallbacks as far down as the build has retried
+        (see retry_with_fallbacks)."""
+        found = self.fallbacks(screen)
+        return found[min(_FALLBACK.get(), len(found) - 1)]
 
     def scroll_for(self, screen):
         """The scroll with its positions resolved for `screen` (a
@@ -586,6 +598,24 @@ class PageEnd(int):
         return f'PageEnd(page={self.page}, declared={int(self)})'
 
 
+def retry_with_fallbacks(attempt, ran_out, levels=2):
+    """attempt(), built again with every text window a fallback lower
+    (TextWindow.fallbacks) while it fails for want of room: a console
+    that learns its code window is full only once the window's steps
+    are laid out. `ran_out(error)` names those failures; any other is
+    raised. A build that fits is never built another way."""
+    first = _FALLBACK.get()
+    for level in range(first, levels + 1):
+        token = _FALLBACK.set(level)
+        try:
+            return attempt()
+        except Exception as error:
+            if level >= levels or not ran_out(error):
+                raise
+        finally:
+            _FALLBACK.reset(token)
+
+
 def _clamped(ends, page):
     """A page past the last is the last: the same script reads a page
     a wider screen does not have."""
@@ -623,6 +653,7 @@ __all__ = [
     'PageEnd',
     'TextWindow',
     'window_tiles',
+    'retry_with_fallbacks',
     'write_runs',
 ]
 
