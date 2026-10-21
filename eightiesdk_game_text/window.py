@@ -93,6 +93,49 @@ class CellFont:
         return character == SPACE or character in self.glyphs
 
 
+class PixelFont(CellFont):
+    """A variable-width font: each glyph `widths[character]` pixels
+    wide (the space too), packed side by side at the pen's running x.
+
+    The glyph's cells hold its pixels left-aligned; a width is at most
+    its cells' width (8). `reveal` is how the window types it:
+
+    * 'glyph': a step writes every cell the glyph touches as it looks
+      once the glyph is drawn: the typing the cartridge shows, at the
+      cost of a tile for every in-between cell.
+    * 'cell': a step writes only the cells the glyph finishes (a
+      line's last glyph finishes the rest): one tile per finished
+      cell, the text appears a cell at a time.
+
+    fixed() is the same glyphs as a CellFont, one cell each: what a
+    console falls back to when even the finished cells do not fit.
+    """
+
+    REVEALS = ('glyph', 'cell')
+
+    def __init__(self, glyphs, widths, rows=1, reveal='glyph'):
+        super().__init__(glyphs, rows)
+        if reveal not in self.REVEALS:
+            raise ValueError(f'a reveal is one of {self.REVEALS}')
+        self.reveal = reveal
+        self.widths = dict(widths)
+        for character in (SPACE, *self.glyphs):
+            width = self.widths.get(character)
+            if width is None:
+                raise ValueError(f'the font has no width for {character!r}')
+            if not 0 < width <= CELL:
+                raise ValueError(
+                    f'glyph {character!r} is {width} px wide; a glyph is '
+                    f'1..{CELL} px'
+                )
+
+    def width(self, text):
+        return sum(self.widths[c] for c in text)
+
+    def fixed(self):
+        return CellFont(self.glyphs, self.rows)
+
+
 def _over(cell, fill):
     return tuple(
         tuple(p if p[3] else f for p, f in zip(row, frow))
@@ -193,10 +236,62 @@ class TextWindow:
         for f in fields(b):
             if f.name != 'fill':
                 add(f.name, getattr(b, f.name))
+        if self.packed:
+            for message in self.messages:
+                for page in self.pages(message):
+                    for number, line in enumerate(page):
+                        for step in self._packed_line(line):
+                            for n, c, pixels in step:
+                                add(pixels, pixels)
+            return tuple(tiles), index
         for character in self._used():
             for n, glyph_cell in enumerate(self.font.glyphs[character]):
                 add((character, n), _over(glyph_cell, b.fill))
         return tuple(tiles), index
+
+    def _packed_line(self, line):
+        """A line's steps as (row in the line, inner column, pixels):
+        one step per glyph that is not a space."""
+        font, fill = self.font, self.border.fill
+        width = self.inner_columns * CELL
+        bitmap = [[None] * width for _ in range(font.rows * CELL)]
+        pen, finished, steps = 0, 0, []
+
+        def cell(n, c):
+            return tuple(
+                tuple(
+                    bitmap[n * CELL + y][c * CELL + x] or fill[y][x]
+                    for x in range(CELL)
+                )
+                for y in range(CELL)
+            )
+
+        for i, character in enumerate(line):
+            start, advance = pen, font.widths[character]
+            pen += advance
+            if character == SPACE:
+                continue
+            for n, glyph_cell in enumerate(font.glyphs[character]):
+                for y in range(CELL):
+                    for x in range(advance):
+                        p = glyph_cell[y][x]
+                        if p[3] and start + x < width:
+                            bitmap[n * CELL + y][start + x] = p
+            if font.reveal == 'glyph':
+                columns = range(start // CELL, (pen - 1) // CELL + 1)
+            else:
+                last = i == len(line) - 1
+                upto = -(-pen // CELL) if last else pen // CELL
+                columns = range(finished, upto)
+                finished = max(finished, upto)
+            steps.append(
+                tuple(
+                    (n, c, cell(n, c))
+                    for n in range(font.rows)
+                    for c in columns
+                )
+            )
+        return steps
 
     @property
     def tiles(self):
@@ -236,13 +331,24 @@ class TextWindow:
     def lines_per_page(self):
         return (self.rows - 2) // self.font.rows
 
+    @property
+    def packed(self):
+        """Whether the font packs glyphs at their own widths."""
+        return isinstance(self.font, PixelFont)
+
+    def _measure(self, text):
+        if self.packed:
+            return self.font.width(text), self.inner_columns * CELL
+        return len(text), self.inner_columns
+
     def pages(self, message):
         lines, line = [], ''
         for word in message.split():
-            if len(word) > self.inner_columns:
+            if self._measure(word)[0] > self._measure(word)[1]:
                 raise ValueError(f'the word {word!r} is wider than the window')
             candidate = word if not line else f'{line} {word}'
-            if len(candidate) <= self.inner_columns:
+            size, room = self._measure(candidate)
+            if size <= room:
                 line = candidate
             else:
                 lines.append(line)
@@ -271,6 +377,17 @@ class TextWindow:
     def reveal(self, page):
         """The cell writes, one step each: border rows, then glyphs."""
         steps = [self._border_row(y) for y in range(self.rows)]
+        if self.packed:
+            for number, line in enumerate(page):
+                top = self.row + 1 + number * self.font.rows
+                for step in self._packed_line(line):
+                    steps.append(
+                        tuple(
+                            (top + n, self.column + 1 + c, self.tile_of(px))
+                            for n, c, px in step
+                        )
+                    )
+            return tuple(steps)
         for number, line in enumerate(page):
             top = self.row + 1 + number * self.font.rows
             for x, character in enumerate(line):
@@ -333,6 +450,9 @@ class TextWindow:
         fitted.columns, fitted.rows, fitted.column = columns, rows, column
         for message in fitted.messages:
             fitted.pages(message)  # a word wider than the window refuses
+        if fitted.packed:
+            # packed cells depend on where lines wrap
+            fitted._tiles, fitted._index = fitted._tile_set()
         return fitted
 
     def scroll_for(self, screen):
@@ -420,6 +540,7 @@ def window_tiles(window):
 
 __all__ = [
     'CellFont',
+    'PixelFont',
     'NineSlice',
     'PageEnd',
     'TextWindow',
