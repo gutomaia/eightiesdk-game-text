@@ -121,6 +121,7 @@ class TextWindowStreamTest(TestCase):
         self.assertEqual('text-window', w.kind)
         self.assertEqual((6, 6), (w.width, w.height))
         self.assertEqual(0, w.value)
+        self.assertEqual(1, w.storage_width)  # one byte of steps
         w.value = 3
         self.assertEqual(3, w.value)
 
