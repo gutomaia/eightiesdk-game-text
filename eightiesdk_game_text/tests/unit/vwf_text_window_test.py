@@ -141,3 +141,22 @@ class HardBreakTest(TestCase):
     def test_a_line_too_long_still_wraps(self):
         w = window(columns=4, rows=4)  # inner 16 px, two lines a page
         self.assertEqual((('A', 'AB A'), ('B',)), w.pages('A\nAB A B'))
+
+
+class RevealedByCellTest(TestCase):
+    """What a console with too few tile names falls back to: the same
+    pages and step counts, only finished cells."""
+
+    def test_it_keeps_the_page_ends_and_costs_fewer_tiles(self):
+        w = window(messages=('ABABAB AB',), columns=6, rows=4)
+        cellwise = w.revealed_by_cell()
+        self.assertEqual('cell', cellwise.font.reveal)
+        self.assertEqual(w.page_ends, cellwise.page_ends)
+        self.assertLess(cellwise.tile_count, w.tile_count)
+        self.assertEqual('glyph', w.font.reveal)
+
+    def test_a_cell_font_window_is_itself(self):
+        from eightiesdk_game_text.window import CellFont
+
+        w = window(font=CellFont({'A': (bar(3),)}, rows=1), messages=('A',))
+        self.assertIs(w, w.revealed_by_cell())
