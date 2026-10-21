@@ -318,3 +318,23 @@ class RetryToldTest(TestCase):
         retry_with_fallbacks(attempt, told=told.append)
         self.assertEqual(1, len(told))
         self.assertIn('finished cell', told[0])
+
+
+class FixedFallbackRewrapTest(TestCase):
+    """A console that falls back to one cell a glyph rewraps the text to
+    its own cells: the variable-width line breaks were placed for the
+    cartridge's pixels, so a lone newline is a space; a blank line (a
+    paragraph) still breaks."""
+
+    def test_a_lone_newline_is_a_space_once_fixed(self):
+        w = window(columns=6, rows=4, messages=('A\nAB A\n\nB',))
+        self.assertEqual((('A', 'AB A'), ('B',)), w.pages(w.messages[0]))
+        fixed = w.fixed()
+        self.assertEqual(
+            (('A AB', 'A'), ('B',)), fixed.pages(fixed.messages[0])
+        )
+
+    def test_a_declared_cell_font_keeps_its_newlines(self):
+        w = window(columns=6, rows=4, font=FONT.fixed(),
+                   messages=('A\nAB',))
+        self.assertEqual((('A', 'AB'),), w.pages('A\nAB'))
