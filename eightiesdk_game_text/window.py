@@ -93,6 +93,8 @@ class TextWindow:
     __eightiesdk_declaration__ = 'text_window'
     #: carried as a band field: the value is the steps drawn so far
     kind = 'text-window'
+    #: the steps drawn are one byte of game state: up to 255 a message
+    storage_width = 1
 
     def __init__(
         self,
