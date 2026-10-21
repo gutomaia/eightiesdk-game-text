@@ -159,3 +159,14 @@ class WriteRunsTest(TestCase):
 
         w = window()
         self.assertEqual([1, 1], [n for *_, n in write_runs(w.steps()[6])])
+
+
+class StepRunsTest(TestCase):
+    def test_every_step_comes_as_its_runs(self):
+        from eightiesdk_game_text.window import write_runs
+
+        w = window()
+        self.assertEqual(
+            tuple(write_runs(step) for step in w.steps()), w.step_runs()
+        )
+        self.assertEqual(write_runs(w.steps()[0]), w.runs(w.steps()[0]))
