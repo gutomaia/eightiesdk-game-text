@@ -27,9 +27,9 @@ def cell(colour):
 
 
 def ink_cell(mark):
-    """A glyph cell: `mark` pixels in ink, the rest clear."""
+    """A glyph cell: one ink pixel at `mark`, the rest clear."""
     return tuple(
-        tuple(INK if (x + y + mark) % 5 == 0 else CLEAR for x in range(8))
+        tuple(INK if y * 8 + x == mark else CLEAR for x in range(8))
         for y in range(8)
     )
 
@@ -46,7 +46,10 @@ BORDER = NineSlice(
     bottom_right=cell((80, 40, 0, 255)),
 )
 FONT = CellFont(
-    {ch: (ink_cell(i), ink_cell(i + 1)) for i, ch in enumerate('ABCDE')},
+    {
+        ch: (ink_cell(2 * i), ink_cell(2 * i + 1))
+        for i, ch in enumerate('ABCDE')
+    },
     rows=2,
 )
 
@@ -83,8 +86,8 @@ class TextWindowTest(TestCase):
 
     def test_a_message_wraps_at_words_into_pages(self):
         w = window(columns=6, rows=6)  # inner 4 wide, 2 lines of 2 rows
-        pages = w.pages('AB CD E')
-        self.assertEqual((('AB', 'CD'), ('E',)), pages)
+        pages = w.pages('AB CD ED E')
+        self.assertEqual((('AB', 'CD'), ('ED E',)), pages)
 
     def test_a_character_the_font_lacks_is_refused_by_name(self):
         with self.assertRaisesRegex(ValueError, "'Z'"):
@@ -92,7 +95,7 @@ class TextWindowTest(TestCase):
 
     def test_the_reveal_unrolls_one_row_then_types_one_glyph(self):
         w = window()
-        steps = w.reveal(w.pages('AB CD E')[0])
+        steps = w.reveal(w.pages('AB CD ED E')[0])
         self.assertEqual(6 + 4, len(steps))
         self.assertEqual(6, len(steps[0]))  # a border row: 6 cells
         self.assertTrue(all(r == 2 for r, c, t in steps[0]))
