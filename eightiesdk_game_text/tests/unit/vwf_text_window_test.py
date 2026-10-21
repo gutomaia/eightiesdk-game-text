@@ -195,3 +195,39 @@ class FallbacksTest(TestCase):
         self.assertNotEqual(packed, fixed.page_ends[-1])
         other = SimpleNamespace(width=256, height=224)
         self.assertEqual(packed, end.__eightiesdk_resolve__(other))
+
+
+class FallbackRetryTest(TestCase):
+    """A console whose build runs out of room only after the window
+    is drawn (its code window full) builds again a fallback lower."""
+
+    def test_drawn_for_follows_the_build_s_fallback_level(self):
+        from types import SimpleNamespace
+
+        from eightiesdk_game_text.window import retry_with_fallbacks
+
+        w = window(messages=('AB A B',), columns=4, rows=3)
+        screen = SimpleNamespace(width=256, height=224)
+        seen = []
+
+        def attempt():
+            drawn, note = w.drawn_for(screen)
+            seen.append((getattr(drawn.font, 'reveal', 'fixed'), note))
+            if len(seen) < 3:
+                raise ValueError('fixed code window full')
+            return w.page_end(-1).__eightiesdk_resolve__(screen)
+
+        end = retry_with_fallbacks(attempt, lambda e: 'full' in str(e))
+        self.assertEqual(['glyph', 'cell', 'fixed'], [r for r, _ in seen])
+        self.assertIsNone(seen[0][1])
+        self.assertEqual(w.fixed().page_ends[-1], end)
+        self.assertEqual('glyph', w.drawn_for(screen)[0].font.reveal)
+
+    def test_a_refusal_it_does_not_name_is_raised(self):
+        from eightiesdk_game_text.window import retry_with_fallbacks
+
+        def attempt():
+            raise KeyError('other')
+
+        with self.assertRaises(KeyError):
+            retry_with_fallbacks(attempt, lambda e: False)
