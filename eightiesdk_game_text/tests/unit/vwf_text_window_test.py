@@ -117,3 +117,14 @@ class FinishedCellRevealTest(TestCase):
             font=PixelFont(FONT.glyphs, widths=FONT.widths, rows=1,
                            reveal='cell'))
         self.assertLess(cellwise.tile_count, glyph.tile_count)
+
+
+class PageCountPerConsoleTest(TestCase):
+    """A packed line can take fewer pages on a wide screen than on a
+    handheld, so a script names pages it may not have."""
+
+    def test_a_page_past_the_last_is_the_last(self):
+        w = window(columns=6, messages=('AB',))
+        self.assertEqual(1, len(w.page_ends))
+        self.assertEqual(w.page_ends[0], w.page_end(1))
+        self.assertEqual(w.page_ends[0], w.page_end(-1))
