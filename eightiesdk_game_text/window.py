@@ -123,23 +123,11 @@ class TextWindow:
         type_frames=1,
         fill=None,
         scroll=None,
+        scroll_x=None,
     ):
-        if scroll is not None:
-            scroll = tuple(scroll)
-            if (
-                len(scroll) != 3
-                or not isinstance(scroll[0], str)
-                or any(
-                    isinstance(v, bool) or not isinstance(v, int)
-                    for v in scroll[1:]
-                )
-                or scroll[1] > scroll[2]
-            ):
-                raise ValueError(
-                    'a text window scroll is (variable, first, last): the '
-                    'camera variable it opens under and the first and '
-                    'last position the camera can be at'
-                )
+        scroll = _checked_scroll(scroll)
+        #: the horizontal camera scroll, stated as the vertical one
+        self.scroll_x = _checked_scroll(scroll_x)
         #: PLACED RELATIVE TO THE CAMERA'S SCROLL AT OPEN: the window's
         #: row and column are on the screen, and a console whose camera
         #: moves the plane draws it where the scroll is when it opens
@@ -351,18 +339,11 @@ class TextWindow:
         """The scroll with its positions resolved for `screen` (a
         camera limit is a number the build resolves per console); on
         the host, the declared numbers."""
-        if self.scroll is None:
-            return None
-        variable, *limits = self.scroll
-        return (variable,) + tuple(
-            (
-                type(v).__eightiesdk_resolve__(v, screen)
-                if screen is not None
-                and hasattr(type(v), '__eightiesdk_resolve__')
-                else int(v)
-            )
-            for v in limits
-        )
+        return _resolved_scroll(self.scroll, screen)
+
+    def scroll_x_for(self, screen):
+        """The horizontal scroll, resolved as `scroll_for`."""
+        return _resolved_scroll(getattr(self, 'scroll_x', None), screen)
 
     def page_end(self, page):
         """The step at which `page` of message 0 is whole, on the
@@ -445,3 +426,40 @@ __all__ = [
     'window_tiles',
     'write_runs',
 ]
+
+
+def _checked_scroll(scroll):
+    """A camera scroll (variable, first, last), or None."""
+    if scroll is None:
+        return None
+    scroll = tuple(scroll)
+    if (
+        len(scroll) != 3
+        or not isinstance(scroll[0], str)
+        or any(
+            isinstance(v, bool) or not isinstance(v, int) for v in scroll[1:]
+        )
+        or scroll[1] > scroll[2]
+    ):
+        raise ValueError(
+            'a text window scroll is (variable, first, last): the '
+            'camera variable it opens under and the first and '
+            'last position the camera can be at'
+        )
+    return scroll
+
+
+def _resolved_scroll(scroll, screen):
+    """`scroll` with its positions resolved for `screen`."""
+    if scroll is None:
+        return None
+    variable, *limits = scroll
+    return (variable,) + tuple(
+        (
+            type(v).__eightiesdk_resolve__(v, screen)
+            if screen is not None
+            and hasattr(type(v), '__eightiesdk_resolve__')
+            else int(v)
+        )
+        for v in limits
+    )
