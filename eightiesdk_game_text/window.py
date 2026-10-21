@@ -351,8 +351,15 @@ class TextWindow:
             return self.font.width(text), self.inner_columns * CELL
         return len(text), self.inner_columns
 
+    # a fixed-width fallback's text was broken for the declared pixels
+    _rewraps = False
+
     def pages(self, message):
         lines = []
+        if self._rewraps:  # a lone newline is a space, a blank line breaks
+            message = '\n'.join(
+                ' '.join(p.split('\n')) for p in message.split('\n\n')
+            )
         for said in message.split('\n'):
             lines.extend(self._wrapped(said))
         n = self.lines_per_page
@@ -493,6 +500,7 @@ class TextWindow:
             return self
         fixed = copy(self)
         fixed.font = self.font.fixed()
+        fixed._rewraps = True
         for message in fixed.messages:
             fixed.pages(message)  # a word wider than the window refuses
         fixed._tiles, fixed._index = fixed._tile_set()
