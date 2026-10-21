@@ -261,6 +261,15 @@ class TextWindow:
             ends.append(ends[-1] + len(self.reveal(page)) - self.rows + 1)
         return tuple(ends)
 
+    def step_runs(self, message=0):
+        """Every step as its write_runs: what a console's vblank drains,
+        reached through the field so a resolver imports nothing."""
+        return tuple(write_runs(step) for step in self.steps(message))
+
+    @staticmethod
+    def runs(writes):
+        return write_runs(writes)
+
     def window_cells(self):
         """Every (row, column) the window covers: what closing clears."""
         return tuple(
