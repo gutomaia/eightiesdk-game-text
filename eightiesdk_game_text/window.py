@@ -504,15 +504,14 @@ class TextWindow:
             found.append((
                 cellwise,
                 'the variable-width text is typed a finished cell at a '
-                'time, not a glyph at a time: too few tile names for the '
-                'in-between cells',
+                'time, not a glyph at a time',
             ))
         fixed = fitted.fixed()
         if fixed is not fitted:
             found.append((
                 fixed,
                 'the variable-width text is drawn one cell a glyph (fixed '
-                'width) and rewraps: too few tile names for packed cells',
+                'width) and rewraps',
             ))
         return tuple(found)
 
@@ -605,15 +604,28 @@ def retry_with_fallbacks(attempt, ran_out, levels=2):
     are laid out. `ran_out(error)` names those failures; any other is
     raised. A build that fits is never built another way."""
     first = _FALLBACK.get()
+    notes = _port_notes()
     for level in range(first, levels + 1):
         token = _FALLBACK.set(level)
+        kept = len(notes) if notes is not None else 0
         try:
             return attempt()
         except Exception as error:
             if level >= levels or not ran_out(error):
                 raise
+            if notes is not None:
+                # the build it said them of is not the one that ships
+                del notes[kept:]
         finally:
             _FALLBACK.reset(token)
+
+
+def _port_notes():
+    try:
+        from eightiesdk_runtime.port_notes import _NOTES
+    except ImportError:
+        return None
+    return _NOTES.get()
 
 
 def _clamped(ends, page):
