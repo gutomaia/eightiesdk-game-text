@@ -476,6 +476,55 @@ class TextWindow:
         cellwise._tiles, cellwise._index = cellwise._tile_set()
         return cellwise
 
+    def fixed(self):
+        """This window with its packed glyphs one cell each (a cell
+        font's window is itself): it wraps and pages anew."""
+        if not self.packed:
+            return self
+        fixed = copy(self)
+        fixed.font = self.font.fixed()
+        for message in fixed.messages:
+            fixed.pages(message)  # a word wider than the window refuses
+        fixed._tiles, fixed._index = fixed._tile_set()
+        return fixed
+
+    def fallbacks(self, screen):
+        """The windows a console can draw for `screen`, best first, each
+        with the compromise its port notes say (None: as declared): a
+        glyph a step, finished cells a step, then one cell a glyph."""
+        fitted = self.fitted_for(screen)
+        found = [(fitted, None)]
+        cellwise = fitted.revealed_by_cell()
+        if cellwise is not fitted:
+            found.append((
+                cellwise,
+                'the variable-width text is typed a finished cell at a '
+                'time, not a glyph at a time: too few tile names for the '
+                'in-between cells',
+            ))
+        fixed = fitted.fixed()
+        if fixed is not fitted:
+            found.append((
+                fixed,
+                'the variable-width text is drawn one cell a glyph (fixed '
+                'width) and rewraps: too few tile names for packed cells',
+            ))
+        return tuple(found)
+
+    def settle(self, screen, window):
+        """A console draws `window` (one of fallbacks(screen)): the page
+        ends its script reads for `screen` are that window's."""
+        self.__dict__.setdefault('_settled', {})[id(screen)] = (
+            screen,
+            window,
+        )
+
+    def settled_for(self, screen):
+        screen_window = self.__dict__.get('_settled', {}).get(id(screen))
+        if screen_window is not None and screen_window[0] is screen:
+            return screen_window[1]
+        return self.fitted_for(screen)
+
     def scroll_for(self, screen):
         """The scroll with its positions resolved for `screen` (a
         camera limit is a number the build resolves per console); on
@@ -529,7 +578,9 @@ class PageEnd(int):
         return end
 
     def __eightiesdk_resolve__(self, screen):
-        return _clamped(self.window.fitted_for(screen).page_ends, self.page)
+        return _clamped(
+            self.window.settled_for(screen).page_ends, self.page
+        )
 
     def __repr__(self):
         return f'PageEnd(page={self.page}, declared={int(self)})'
