@@ -249,5 +249,7 @@ class RetryNotesTest(TestCase):
             return 'rom'
 
         with collecting() as notes:
-            retry_with_fallbacks(attempt, lambda e: 'full' in str(e))
+            retry_with_fallbacks(
+                attempt, lambda e: 'full' in str(e), notes=notes
+            )
         self.assertEqual(['attempt 2'], [n.compromise for n in notes])

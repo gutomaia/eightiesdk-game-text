@@ -597,14 +597,14 @@ class PageEnd(int):
         return f'PageEnd(page={self.page}, declared={int(self)})'
 
 
-def retry_with_fallbacks(attempt, ran_out, levels=2):
+def retry_with_fallbacks(attempt, ran_out, levels=2, notes=None):
     """attempt(), built again with every text window a fallback lower
     (TextWindow.fallbacks) while it fails for want of room: a console
     that learns its code window is full only once the window's steps
     are laid out. `ran_out(error)` names those failures; any other is
-    raised. A build that fits is never built another way."""
+    raised. A build that fits is never built another way. `notes` (the
+    build's port-note list) loses what a failed attempt said."""
     first = _FALLBACK.get()
-    notes = _port_notes()
     for level in range(first, levels + 1):
         token = _FALLBACK.set(level)
         kept = len(notes) if notes is not None else 0
@@ -619,13 +619,6 @@ def retry_with_fallbacks(attempt, ran_out, levels=2):
         finally:
             _FALLBACK.reset(token)
 
-
-def _port_notes():
-    try:
-        from eightiesdk_runtime.port_notes import _NOTES
-    except ImportError:
-        return None
-    return _NOTES.get()
 
 
 def _clamped(ends, page):
