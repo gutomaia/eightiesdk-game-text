@@ -239,10 +239,15 @@ class RetryNotesTest(TestCase):
 
         from eightiesdk_game_text.window import retry_with_fallbacks
 
+        from types import SimpleNamespace
+
+        w = window(messages=('AB A B',), columns=4, rows=3)
+        screen = SimpleNamespace(width=256, height=224)
         tries = []
 
         def attempt():
             tries.append(1)
+            w.drawn_for(screen)
             compromise(f'attempt {len(tries)}')
             if len(tries) < 2:
                 raise ValueError('full')

@@ -35,6 +35,9 @@ SPACE = ' '
 #: how many fallbacks down the build in progress draws its windows
 #: (see retry_with_fallbacks): 0 is the best each console can draw
 _FALLBACK = ContextVar('text_window_fallback', default=0)
+#: whether the attempt in progress drew a window with a fallback below
+#: the one it drew (a list the retry sets per attempt; None outside one)
+_LOWER = ContextVar('text_window_has_lower_fallback', default=None)
 
 
 @dataclass(frozen=True)
@@ -534,7 +537,11 @@ class TextWindow:
         `screen`: its fallbacks as far down as the build has retried
         (see retry_with_fallbacks)."""
         found = self.fallbacks(screen)
-        return found[min(_FALLBACK.get(), len(found) - 1)]
+        level = min(_FALLBACK.get(), len(found) - 1)
+        lower = _LOWER.get()
+        if lower is not None and level < len(found) - 1:
+            lower.append(self)
+        return found[level]
 
     def scroll_for(self, screen):
         """The scroll with its positions resolved for `screen` (a
@@ -597,28 +604,31 @@ class PageEnd(int):
         return f'PageEnd(page={self.page}, declared={int(self)})'
 
 
-def retry_with_fallbacks(attempt, ran_out, levels=2, notes=None):
+def retry_with_fallbacks(attempt, ran_out=None, levels=2, notes=None):
     """attempt(), built again with every text window a fallback lower
-    (TextWindow.fallbacks) while it fails for want of room: a console
-    that learns its code window is full only once the window's steps
-    are laid out. `ran_out(error)` names those failures; any other is
-    raised. A build that fits is never built another way. `notes` (the
-    build's port-note list) loses what a failed attempt said."""
+    (TextWindow.fallbacks) while it fails and drew a window with a
+    fallback left: a console learns it ran out of names, pattern bytes
+    or its code window only once the window is laid out. `ran_out`
+    narrows the failures retried (default: any). A build that fits is
+    never built another way. `notes` (the build's port-note list) loses
+    what a failed attempt said."""
     first = _FALLBACK.get()
     for level in range(first, levels + 1):
         token = _FALLBACK.set(level)
+        lower = []
+        lowered = _LOWER.set(lower)
         kept = len(notes) if notes is not None else 0
         try:
             return attempt()
         except Exception as error:
-            if level >= levels or not ran_out(error):
+            if not lower or (ran_out is not None and not ran_out(error)):
                 raise
             if notes is not None:
                 # the build it said them of is not the one that ships
                 del notes[kept:]
         finally:
+            _LOWER.reset(lowered)
             _FALLBACK.reset(token)
-
 
 
 def _clamped(ends, page):
