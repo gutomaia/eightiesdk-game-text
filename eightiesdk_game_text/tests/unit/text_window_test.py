@@ -141,3 +141,21 @@ class TextWindowStreamTest(TestCase):
     def test_closing_clears_every_window_cell(self):
         w = window()
         self.assertEqual(36, len(w.window_cells()))
+
+
+class WriteRunsTest(TestCase):
+    """The queue a console drains: a step's writes as runs of one tile."""
+
+    def test_a_border_row_is_three_runs(self):
+        from eightiesdk_game_text.window import write_runs
+
+        w = window()
+        runs = write_runs(w.steps()[1])
+        self.assertEqual(3, len(runs))
+        self.assertEqual((3, 2, w.tile_of('fill'), 4), runs[1])
+
+    def test_a_glyph_is_two_runs_of_one(self):
+        from eightiesdk_game_text.window import write_runs
+
+        w = window()
+        self.assertEqual([1, 1], [n for *_, n in write_runs(w.steps()[6])])
