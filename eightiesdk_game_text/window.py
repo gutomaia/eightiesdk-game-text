@@ -983,6 +983,17 @@ def retry_with_fallbacks(
     raise refused
 
 
+def _register_with_the_hosts():
+    """A director or a console builder asks for a retry through the
+    neutral seam; it never imports this package."""
+    from eightiesdk_resources.build_retry import register
+
+    register(retry_with_fallbacks)
+
+
+_register_with_the_hosts()
+
+
 def _clamped(ends, page):
     """A page past the last is the last: the same script reads a page
     a wider screen does not have."""

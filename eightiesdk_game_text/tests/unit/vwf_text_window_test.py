@@ -289,6 +289,32 @@ class RetriesRunOutTest(TestCase):
             _FALLBACK.reset(token)
 
 
+class RegisteredRetryTest(TestCase):
+    """The text windows' retry is registered where the hosts ask for
+    it (eightiesdk_resources.build_retry): a director or a console
+    builder that never imports this package still builds a refused
+    window a fallback lower."""
+
+    def test_the_hosts_retry_reaches_the_window_fallbacks(self):
+        from types import SimpleNamespace
+
+        from eightiesdk_resources import build_retry
+
+        w = window(messages=('AB A B',), columns=4, rows=3)
+        screen = SimpleNamespace(width=256, height=224)
+        seen = []
+
+        def attempt():
+            drawn, _note = w.drawn_for(screen)
+            seen.append(getattr(drawn.font, 'reveal', 'fixed'))
+            if len(seen) < 2:
+                raise ValueError('out of room')
+            return 'rom'
+
+        self.assertEqual('rom', build_retry.retried(attempt))
+        self.assertEqual(['glyph', 'cell'], seen)
+
+
 class RetryNotesTest(TestCase):
     def test_a_failed_attempt_s_port_notes_are_dropped(self):
         from eightiesdk_runtime.port_notes import collecting, compromise
