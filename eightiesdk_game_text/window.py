@@ -580,6 +580,70 @@ class TextWindow:
         reached through the field so a resolver imports nothing."""
         return tuple(write_runs(step) for step in self.steps(message))
 
+    def streamed(self, names, message=0):
+        """THE TILES LOADED AS THE STEPS NEED THEM, for a console with
+        fewer tile names than this window has tiles: per step, (loads,
+        runs). `loads` are (name, tile) to copy into the console's
+        pattern memory before the step's `runs` (write_runs, with names
+        for tiles). A name no cell shows is reused (the one freed
+        longest ago first; one a step frees is free from the next), and
+        a cell the only one showing its name is redrawn by loading that
+        name. Refused (ValueError) when more tiles show at once than
+        `names` holds; streamed_names_needed() says how many do."""
+        names = tuple(names)
+        free = list(names)  # never used first, then oldest freed
+        loaded, refs, grid, out = {}, {}, {}, []
+        for step in self.steps(message):
+            loads, writes, freed = [], [], []
+            for row, column, tile in step:
+                old = grid.get((row, column))
+                resident = next(
+                    (n for n, t in loaded.items() if t == tile), None
+                )
+                if resident is not None:
+                    name = resident
+                    if not refs.get(name) and name in free:
+                        free.remove(name)
+                elif old is not None and refs[old] == 1:
+                    # the only cell showing it: redrawn in place
+                    loaded[old] = tile
+                    loads.append((old, tile))
+                    continue
+                else:
+                    if not free:
+                        raise ValueError(
+                            f'the window shows more tiles at once than '
+                            f'the {len(names)} names hold'
+                        )
+                    name = free.pop(0)
+                    loaded[name] = tile
+                    loads.append((name, tile))
+                if name == old:
+                    continue
+                refs[name] = refs.get(name, 0) + 1
+                if old is not None:
+                    refs[old] -= 1
+                    if not refs[old]:
+                        freed.append(old)
+                grid[(row, column)] = name
+                writes.append((row, column, name))
+            free.extend(n for n in freed if not refs[n])
+            out.append((tuple(loads), write_runs(writes)))
+        return tuple(out)
+
+    def streamed_names_needed(self, message=0):
+        """The fewest names streamed() draws this window in."""
+        low, high = 1, self.tile_count
+        while low < high:
+            middle = (low + high) // 2
+            try:
+                self.streamed(range(middle), message)
+            except ValueError:
+                low = middle + 1
+            else:
+                high = middle
+        return low
+
     @staticmethod
     def runs(writes):
         return write_runs(writes)
