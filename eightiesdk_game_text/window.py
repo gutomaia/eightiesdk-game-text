@@ -538,7 +538,9 @@ class TextWindow:
             )
             count = len(self.choice.options)
             for move in range(1, self.choice.moves + 1):
-                steps.append(self._option_writes(top, move % count))
+                steps.append(
+                    self._option_writes(top, move % count, (move - 1) % count)
+                )
         return tuple(steps)
 
     # -- a choice ----------------------------------------------------------
@@ -585,18 +587,23 @@ class TextWindow:
             for n in range(self.font.rows)
         )
 
-    def _option_writes(self, top, chosen):
+    def _option_writes(self, top, chosen, before):
+        """The cells that change when the cursor leaves option `before`
+        for option `chosen`."""
         writes = []
-        for number, line in enumerate(self.choice.lines(chosen)):
-            for n, row in enumerate(self._line_cells(line)):
+        lines = zip(self.choice.lines(chosen), self.choice.lines(before))
+        for number, (line, was) in enumerate(lines):
+            now, old = self._line_cells(line), self._line_cells(was)
+            for n, row in enumerate(now):
                 for c, key in enumerate(row):
-                    writes.append(
-                        (
-                            top + number * self.font.rows + n,
-                            self.column + 1 + c,
-                            self.tile_of(key),
+                    if key != old[n][c]:
+                        writes.append(
+                            (
+                                top + number * self.font.rows + n,
+                                self.column + 1 + c,
+                                self.tile_of(key),
+                            )
                         )
-                    )
         return tuple(writes)
 
     @property
