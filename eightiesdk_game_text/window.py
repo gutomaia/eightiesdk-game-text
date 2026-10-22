@@ -276,6 +276,8 @@ class TextWindow:
                     raise ValueError(
                         f'the window font draws no glyph for {character!r}'
                     )
+        if choice is not None:
+            self._asked()  # an option wider than the window refuses
         self._tiles, self._index = self._tile_set()
         #: steps the game asks to be drawn; 0 is no window
         self.value = 0
@@ -442,7 +444,7 @@ class TextWindow:
             []
         ]
         if self.choice is not None and message == self.messages[0]:
-            options = self.choice.lines(0)
+            options = self._asked().lines(0)
             if len(options) > n:
                 raise ValueError(
                     f'{len(options)} options do not fit a page of {n} lines'
@@ -550,6 +552,31 @@ class TextWindow:
         each step past it is a move of the cursor."""
         return self.page_ends[-1]
 
+    def _asked(self):
+        """The choice as this window can say it: its options at the
+        declared indent, or as far in as the inner width leaves room
+        for (an option line never wraps); refused when not even an
+        unindented option fits."""
+        from dataclasses import replace
+
+        choice = self.choice
+        for indent in range(choice.indent, -1, -1):
+            asked = replace(choice, indent=indent)
+            if all(
+                self._option_width(line) <= self._measure('')[1]
+                for line in asked.lines(0) + asked.lines(1)
+            ):
+                return asked
+        raise ValueError(
+            f'an option of {choice.options!r} is wider than the window'
+        )
+
+    def _option_width(self, line):
+        if not self.packed:
+            return len(line)
+        character, at = line.placed(self.font)[-1]
+        return at + self.font.widths[character]
+
     def chosen(self, step):
         """The option the cursor is on once `step` steps are drawn."""
         return max(0, step - self.choice_start) % len(self.choice.options)
@@ -561,7 +588,7 @@ class TextWindow:
         return tuple(
             line
             for chosen in range(len(choice.options))
-            for line in choice.lines(chosen)
+            for line in self._asked().lines(chosen)
         )
 
     def _line_cells(self, line):
@@ -591,7 +618,7 @@ class TextWindow:
         """The cells that change when the cursor leaves option `before`
         for option `chosen`."""
         writes = []
-        lines = zip(self.choice.lines(chosen), self.choice.lines(before))
+        lines = zip(self._asked().lines(chosen), self._asked().lines(before))
         for number, (line, was) in enumerate(lines):
             now, old = self._line_cells(line), self._line_cells(was)
             for n, row in enumerate(now):
