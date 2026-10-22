@@ -32,9 +32,11 @@ def bar(width):
     )
 
 
-BORDER = NineSlice(*(cell((200, 160, 40 + i, 255)) for i in range(4)),
-                   cell(DARK),
-                   *(cell((100, 60, i, 255)) for i in range(4)))
+BORDER = NineSlice(
+    *(cell((200, 160, 40 + i, 255)) for i in range(4)),
+    cell(DARK),
+    *(cell((100, 60, i, 255)) for i in range(4)),
+)
 FONT = PixelFont(
     {'A': (bar(3),), 'B': (bar(5),)},
     widths={'A': 4, 'B': 6, ' ': 2},
@@ -43,8 +45,15 @@ FONT = PixelFont(
 
 
 def window(**kw):
-    args = dict(column=0, row=0, columns=4, rows=3, border=BORDER,
-                font=FONT, messages=('AB',))
+    args = dict(
+        column=0,
+        row=0,
+        columns=4,
+        rows=3,
+        border=BORDER,
+        font=FONT,
+        messages=('AB',),
+    )
     args.update(kw)
     return TextWindow(**args)
 
@@ -56,8 +65,9 @@ class PixelFontTest(TestCase):
 
     def test_every_glyph_and_the_space_has_a_width(self):
         with self.assertRaisesRegex(ValueError, "'B'"):
-            PixelFont({'A': (bar(3),), 'B': (bar(3),)},
-                      widths={'A': 4, ' ': 2})
+            PixelFont(
+                {'A': (bar(3),), 'B': (bar(3),)}, widths={'A': 4, ' ': 2}
+            )
 
     def test_it_keeps_a_fixed_width_cell_font(self):
         fixed = FONT.fixed()
@@ -68,7 +78,7 @@ class PixelFontTest(TestCase):
 class PackedLineTest(TestCase):
     def test_glyphs_sit_at_the_running_pen(self):
         w = window()
-        steps = w.reveal(w.pages('AB')[0])[w.rows:]
+        steps = w.reveal(w.pages('AB')[0])[w.rows :]
         self.assertEqual(2, len(steps))
         # A: one cell; B starts at x 4 and reaches x 9: two cells
         self.assertEqual({(1, 1)}, {(r, c) for r, c, t in steps[0]})
@@ -79,7 +89,7 @@ class PackedLineTest(TestCase):
 
     def test_a_cell_shows_each_glyph_as_it_is_typed(self):
         w = window()
-        a, b = w.reveal(w.pages('AB')[0])[w.rows:]
+        a, b = w.reveal(w.pages('AB')[0])[w.rows :]
         self.assertNotEqual(a[0][2], b[0][2])
 
     def test_lines_wrap_by_pixels_not_characters(self):
@@ -103,19 +113,23 @@ class FinishedCellRevealTest(TestCase):
     """reveal='cell': only finished cells, so fewer tiles."""
 
     def test_a_cell_is_written_once_it_is_finished(self):
-        font = PixelFont(FONT.glyphs, widths=FONT.widths, rows=1,
-                         reveal='cell')
+        font = PixelFont(
+            FONT.glyphs, widths=FONT.widths, rows=1, reveal='cell'
+        )
         w = window(font=font)
-        steps = w.reveal(w.pages('AB')[0])[w.rows:]
+        steps = w.reveal(w.pages('AB')[0])[w.rows :]
         self.assertEqual((), steps[0])
         self.assertEqual({(1, 1), (1, 2)}, {(r, c) for r, c, t in steps[1]})
 
     def test_it_costs_fewer_tiles(self):
         glyph = window(messages=('ABABAB',), columns=6)
         cellwise = window(
-            messages=('ABABAB',), columns=6,
-            font=PixelFont(FONT.glyphs, widths=FONT.widths, rows=1,
-                           reveal='cell'))
+            messages=('ABABAB',),
+            columns=6,
+            font=PixelFont(
+                FONT.glyphs, widths=FONT.widths, rows=1, reveal='cell'
+            ),
+        )
         self.assertLess(cellwise.tile_count, glyph.tile_count)
 
 
@@ -173,10 +187,16 @@ class FallbacksTest(TestCase):
         w = window(messages=('ABAB AB',), columns=6, rows=4)
         screen = SimpleNamespace(width=256, height=224)
         found = w.fallbacks(screen)
-        self.assertEqual(3, len(found))
-        (first, none), (second, cell_note), (third, fixed_note) = found
+        self.assertEqual(4, len(found))
+        (first, none), (fewer, fewer_note), *rest = found
+        (second, cell_note), (third, fixed_note) = rest
         self.assertIsNone(none)
         self.assertEqual('glyph', first.font.reveal)
+        # (b) FEWER LINES A PAGE, still a glyph a step: a page shows
+        # (and a console streams) fewer patterns at once
+        self.assertEqual('glyph', fewer.font.reveal)
+        self.assertEqual(first.lines_per_page - 1, fewer.lines_per_page)
+        self.assertIn('lines a page', fewer_note)
         self.assertEqual('cell', second.font.reveal)
         self.assertIn('finished cell', cell_note)
         self.assertNotIsInstance(third.font, PixelFont)
@@ -191,7 +211,9 @@ class FallbacksTest(TestCase):
         packed = end.__eightiesdk_resolve__(screen)
         *_, (fixed, _note) = w.fallbacks(screen)
         w.settle(screen, fixed)
-        self.assertEqual(fixed.page_ends[-1], end.__eightiesdk_resolve__(screen))
+        self.assertEqual(
+            fixed.page_ends[-1], end.__eightiesdk_resolve__(screen)
+        )
         self.assertNotEqual(packed, fixed.page_ends[-1])
         other = SimpleNamespace(width=256, height=224)
         self.assertEqual(packed, end.__eightiesdk_resolve__(other))
@@ -335,8 +357,7 @@ class FixedFallbackRewrapTest(TestCase):
         )
 
     def test_a_declared_cell_font_keeps_its_newlines(self):
-        w = window(columns=6, rows=4, font=FONT.fixed(),
-                   messages=('A\nAB',))
+        w = window(columns=6, rows=4, font=FONT.fixed(), messages=('A\nAB',))
         self.assertEqual((('A', 'AB'),), w.pages('A\nAB'))
 
 
@@ -354,8 +375,7 @@ def _replayed(w, streamed):
                 grid[(r, c + i)] = name
         for name, _tile in uploads:
             if any(
-                n == name and grid[cell] != name
-                for cell, n in before.items()
+                n == name and grid[cell] != name for cell, n in before.items()
             ):
                 clobbered = True
         screens.append({cell: loaded[n] for cell, n in grid.items()})
@@ -403,3 +423,17 @@ class StreamedNamesTest(TestCase):
         w = self.w()
         with self.assertRaisesRegex(ValueError, 'names'):
             w.streamed(tuple(range(w.streamed_names_needed() - 1)))
+
+
+class FewerLinesTest(TestCase):
+    def test_a_one_line_window_has_no_fewer_lines_level(self):
+        w = window(messages=('AB',), columns=6, rows=3)
+        self.assertEqual(1, w.lines_per_page)
+        self.assertFalse(
+            [n for _w, n in w.fallbacks(None) if n and 'lines a page' in n]
+        )
+
+    def test_its_pages_hold_fewer_lines(self):
+        w = window(messages=('AB AB AB AB',), columns=4, rows=4)
+        fewer = w.fewer_lines()
+        self.assertGreater(len(fewer.page_ends), len(w.page_ends))

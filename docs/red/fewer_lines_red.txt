@@ -1,0 +1,4 @@
+=========================== short test summary info ============================
+FAILED eightiesdk_game_text/tests/unit/vwf_text_window_test.py::FallbacksTest::test_the_fallbacks_go_glyph_cell_fixed
+FAILED eightiesdk_game_text/tests/unit/vwf_text_window_test.py::FewerLinesTest::test_its_pages_hold_fewer_lines
+2 failed, 28 passed in 0.07s
