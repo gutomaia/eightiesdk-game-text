@@ -568,7 +568,7 @@ class TextWindow:
             ):
                 return asked
         raise ValueError(
-            f'an option of {choice.options!r} is wider than the window'
+            f'an option of {choice.options!r} does not fit the window'
         )
 
     def _option_width(self, line):
@@ -698,8 +698,8 @@ class TextWindow:
         glyph a step, finished cells a step, then one cell a glyph."""
         fitted = self.fitted_for(screen)
         found = [(fitted, None)]
-        cellwise = fitted.revealed_by_cell()
-        if cellwise is not fitted:
+        cellwise = _sayable(fitted.revealed_by_cell)
+        if cellwise is not None and cellwise is not fitted:
             found.append(
                 (
                     cellwise,
@@ -707,8 +707,8 @@ class TextWindow:
                     'time, not a glyph at a time',
                 )
             )
-        fixed = fitted.fixed()
-        if fixed is not fitted:
+        fixed = _sayable(fitted.fixed)
+        if fixed is not None and fixed is not fitted:
             found.append(
                 (
                     fixed,
@@ -849,6 +849,17 @@ class TextWindow:
             for r, c, tile in writes:
                 grid[r - self.row][c - self.column] = tile
         return grid
+
+
+def _sayable(fallback):
+    """fallback(), or None when it cannot say the window's choice (an
+    option wider than its rewrapped inside): that level is left out."""
+    try:
+        return fallback()
+    except ValueError as error:
+        if 'does not fit the window' not in str(error):
+            raise
+        return None
 
 
 def _pen_positions(line, font):
