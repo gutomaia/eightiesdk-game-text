@@ -708,15 +708,37 @@ class TextWindow:
                 )
             )
         fixed = _sayable(fitted.fixed)
+        widened = None
+        if fixed is None and screen is not None:
+            fixed, widened = fitted._widened_fixed(screen.width // CELL)
         if fixed is not None and fixed is not fitted:
             found.append(
                 (
                     fixed,
                     'the variable-width text is drawn one cell a glyph (fixed '
-                    'width) and rewraps',
+                    'width) and rewraps'
+                    + (
+                        f', the window widened to {widened} columns for its '
+                        'options'
+                        if widened
+                        else ''
+                    ),
                 )
             )
         return tuple(found)
+
+    def _widened_fixed(self, screen_columns):
+        """(fixed window, columns) of the narrowest widening, kept on a
+        screen of `screen_columns`, whose fixed fallback says the
+        choice; (None, None) when even the screen's width does not."""
+        for columns in range(self.columns + 1, screen_columns + 1):
+            wider = copy(self)
+            wider.columns = columns
+            wider.column = max(0, min(self.column, screen_columns - columns))
+            fixed = _sayable(wider.fixed)
+            if fixed is not None:
+                return fixed, columns
+        return None, None
 
     def settle(self, screen, window):
         """A console draws `window` (one of fallbacks(screen)): the page
