@@ -153,6 +153,64 @@ def _over(cell, fill):
     )
 
 
+@dataclass(frozen=True)
+class Choice:
+    """A question's options (ZELDA-QUESTION): said under the message on
+    its last page, `indent` spaces in, the `cursor` glyph and a space
+    before each, the cursor on the first. `moves` steps follow the
+    question, each the option lines redrawn with the cursor one option
+    further (round): the option chosen is the steps past the question
+    modulo the options (TextWindow.chosen). What an answer leads to is
+    the game's: its own window, declared over the same cells."""
+
+    options: tuple
+    cursor: str = '>'
+    indent: int = 4
+    moves: int = 16
+
+    def __post_init__(self):
+        object.__setattr__(self, 'options', tuple(self.options))
+        if len(self.options) < 2:
+            raise ValueError('a choice needs two options or more')
+        if self.moves < 1:
+            raise ValueError('a choice needs a move at least')
+
+    def lines(self, chosen):
+        """The option lines with the cursor on option `chosen`."""
+        return tuple(
+            _OptionLine(self, number, number == chosen)
+            for number in range(len(self.options))
+        )
+
+
+class _OptionLine(str):
+    """An option line: as text (a cell font draws it as it reads), and
+    with its glyphs' pen positions for a packed font, so the option's
+    text starts at the same x whether the cursor is on it or not."""
+
+    def __new__(cls, choice, number, on):
+        text = (
+            SPACE * choice.indent
+            + (choice.cursor if on else SPACE)
+            + SPACE
+            + choice.options[number]
+        )
+        line = super().__new__(cls, text)
+        line.choice, line.number, line.on = choice, number, on
+        return line
+
+    def placed(self, font):
+        """(character, pen x) of each glyph, as the font packs it."""
+        choice = self.choice
+        at = font.widths[SPACE] * choice.indent
+        out = [(choice.cursor, at)] if self.on else []
+        pen = at + font.widths[choice.cursor] + font.widths[SPACE]
+        for character in choice.options[self.number]:
+            out.append((character, pen))
+            pen += font.widths[character]
+        return out
+
+
 class TextWindow:
     """A window of cells that border-unrolls, then types its message."""
 
@@ -177,7 +235,10 @@ class TextWindow:
         fill=None,
         scroll=None,
         scroll_x=None,
+        choice=None,
     ):
+        #: a question's options under message 0 (Choice), or None
+        self.choice = choice
         scroll = _checked_scroll(scroll)
         #: the horizontal camera scroll, stated as the vertical one
         self.scroll_x = _checked_scroll(scroll_x)
@@ -206,7 +267,10 @@ class TextWindow:
         self.border, self.font = border, font
         self.messages = tuple(messages)
         self.unroll_frames, self.type_frames = unroll_frames, type_frames
-        for message in self.messages:
+        said = self.messages + (
+            (choice.cursor + ''.join(choice.options),) if choice else ()
+        )
+        for message in said:
             for character in message:
                 if character != '\n' and character not in font:
                     raise ValueError(
@@ -227,7 +291,9 @@ class TextWindow:
     # -- the tile set ----------------------------------------------------
     def _used(self):
         seen = {}
-        for message in self.messages:
+        choice = getattr(self, 'choice', None)
+        extra = (choice.cursor + ''.join(choice.options),) if choice else ()
+        for message in self.messages + extra:
             for character in message:
                 if character not in (SPACE, '\n'):
                     seen.setdefault(character, None)
@@ -253,6 +319,10 @@ class TextWindow:
                         for step in self._packed_line(line):
                             for n, c, pixels in step:
                                 add(pixels, pixels)
+            for line in self._option_states():
+                for row in self._line_cells(line):
+                    for pixels in row:
+                        add(pixels, pixels)
             return tuple(tiles), index
         for character in self._used():
             for n, glyph_cell in enumerate(self.font.glyphs[character]):
@@ -276,9 +346,14 @@ class TextWindow:
                 for y in range(CELL)
             )
 
-        for i, character in enumerate(line):
-            start, advance = pen, font.widths[character]
-            pen += advance
+        placed = (
+            line.placed(font)
+            if isinstance(line, _OptionLine)
+            else _pen_positions(line, font)
+        )
+        for i, (character, start) in enumerate(placed):
+            advance = font.widths[character]
+            pen = start + advance
             if character == SPACE:
                 continue
             for n, glyph_cell in enumerate(font.glyphs[character]):
@@ -290,7 +365,7 @@ class TextWindow:
             if font.reveal == 'glyph':
                 columns = range(start // CELL, (pen - 1) // CELL + 1)
             else:
-                last = i == len(line) - 1
+                last = i == len(placed) - 1
                 upto = -(-pen // CELL) if last else pen // CELL
                 columns = range(finished, upto)
                 finished = max(finished, upto)
@@ -363,9 +438,19 @@ class TextWindow:
         for said in message.split('\n'):
             lines.extend(self._wrapped(said))
         n = self.lines_per_page
-        return tuple(
-            tuple(lines[i : i + n]) for i in range(0, len(lines), n)
-        ) or ((),)
+        pages = [list(lines[i : i + n]) for i in range(0, len(lines), n)] or [
+            []
+        ]
+        if self.choice is not None and message == self.messages[0]:
+            options = self.choice.lines(0)
+            if len(options) > n:
+                raise ValueError(
+                    f'{len(options)} options do not fit a page of {n} lines'
+                )
+            if len(pages[-1]) + len(options) > n:
+                pages.append([])
+            pages[-1].extend(options)
+        return tuple(tuple(page) for page in pages)
 
     def _wrapped(self, message):
         """One said line wrapped to the inner width."""
@@ -445,7 +530,74 @@ class TextWindow:
         for page in pages[1:]:
             steps.append(self._refill())
             steps.extend(self.reveal(page)[self.rows :])
+        if self.choice is not None and message == 0:
+            top = (
+                self.row
+                + 1
+                + (len(pages[-1]) - len(self.choice.options)) * self.font.rows
+            )
+            count = len(self.choice.options)
+            for move in range(1, self.choice.moves + 1):
+                steps.append(self._option_writes(top, move % count))
         return tuple(steps)
+
+    # -- a choice ----------------------------------------------------------
+    @property
+    def choice_start(self):
+        """The steps at which the question and its options are whole:
+        each step past it is a move of the cursor."""
+        return self.page_ends[-1]
+
+    def chosen(self, step):
+        """The option the cursor is on once `step` steps are drawn."""
+        return max(0, step - self.choice_start) % len(self.choice.options)
+
+    def _option_states(self):
+        choice = getattr(self, 'choice', None)
+        if choice is None:
+            return ()
+        return tuple(
+            line
+            for chosen in range(len(choice.options))
+            for line in choice.lines(chosen)
+        )
+
+    def _line_cells(self, line):
+        """Every inner cell of a line, rows of the font by inner
+        columns: a glyph's cell, or the fill where it draws nothing."""
+        if self.packed:
+            drawn = {}
+            for step in self._packed_line(line):
+                for n, c, pixels in step:
+                    drawn[(n, c)] = pixels
+            return tuple(
+                tuple(
+                    drawn.get((n, c), self.border.fill)
+                    for c in range(self.inner_columns)
+                )
+                for n in range(self.font.rows)
+            )
+        return tuple(
+            tuple(
+                (line[c], n) if c < len(line) and line[c] != SPACE else 'fill'
+                for c in range(self.inner_columns)
+            )
+            for n in range(self.font.rows)
+        )
+
+    def _option_writes(self, top, chosen):
+        writes = []
+        for number, line in enumerate(self.choice.lines(chosen)):
+            for n, row in enumerate(self._line_cells(line)):
+                for c, key in enumerate(row):
+                    writes.append(
+                        (
+                            top + number * self.font.rows + n,
+                            self.column + 1 + c,
+                            self.tile_of(key),
+                        )
+                    )
+        return tuple(writes)
 
     @property
     def page_ends(self):
@@ -663,6 +815,14 @@ class TextWindow:
             for r, c, tile in writes:
                 grid[r - self.row][c - self.column] = tile
         return grid
+
+
+def _pen_positions(line, font):
+    out, pen = [], 0
+    for character in line:
+        out.append((character, pen))
+        pen += font.widths[character]
+    return out
 
 
 class PageEnd(int):
