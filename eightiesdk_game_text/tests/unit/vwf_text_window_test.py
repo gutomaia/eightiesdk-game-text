@@ -338,3 +338,68 @@ class FixedFallbackRewrapTest(TestCase):
         w = window(columns=6, rows=4, font=FONT.fixed(),
                    messages=('A\nAB',))
         self.assertEqual((('A', 'AB'),), w.pages('A\nAB'))
+
+
+def _replayed(w, streamed):
+    """The screen `streamed` draws, as tiles, after each step; and
+    whether a step loaded a name a cell showed and then left (that
+    cell shows the new tile until its run comes, a frame later)."""
+    loaded, grid, screens, clobbered = {}, {}, [], False
+    for uploads, runs in streamed:
+        before = dict(grid)
+        for name, tile in uploads:
+            loaded[name] = tile
+        for r, c, name, count in runs:
+            for i in range(count):
+                grid[(r, c + i)] = name
+        for name, _tile in uploads:
+            if any(
+                n == name and grid[cell] != name
+                for cell, n in before.items()
+            ):
+                clobbered = True
+        screens.append({cell: loaded[n] for cell, n in grid.items()})
+    return screens, clobbered
+
+
+class StreamedNamesTest(TestCase):
+    """A console with fewer tile names than a packed window's tiles
+    loads each tile into a name as a step needs it: names no cell shows
+    are reused, and a cell only it shows is redrawn in place."""
+
+    def w(self):
+        return window(messages=('ABAB BA AB\n\nBABA',), columns=6, rows=4)
+
+    def expected(self, w):
+        grid, out = {}, []
+        for step in w.steps(0):
+            for r, c, t in step:
+                grid[(r, c)] = t
+            out.append(dict(grid))
+        return out
+
+    def test_it_draws_every_step_as_the_window_does(self):
+        w = self.w()
+        names = tuple(range(100, 100 + w.tile_count))
+        screens, clobbered = _replayed(w, w.streamed(names))
+        self.assertEqual(self.expected(w), screens)
+        self.assertFalse(clobbered)
+
+    def test_it_fits_in_fewer_names_than_tiles(self):
+        w = self.w()
+        fewest = w.streamed_names_needed()
+        self.assertLess(fewest, w.tile_count)
+        names = tuple(range(7, 7 + fewest))
+        streamed = w.streamed(names)
+        used = {n for ups, runs in streamed for n, _t in ups} | {
+            n for ups, runs in streamed for _r, _c, n, _k in runs
+        }
+        self.assertLessEqual(used, set(names))
+        screens, clobbered = _replayed(w, streamed)
+        self.assertEqual(self.expected(w), screens)
+        self.assertFalse(clobbered)
+
+    def test_too_few_names_is_refused(self):
+        w = self.w()
+        with self.assertRaisesRegex(ValueError, 'names'):
+            w.streamed(tuple(range(w.streamed_names_needed() - 1)))
