@@ -951,6 +951,7 @@ def retry_with_fallbacks(
     what a failed attempt said; `told(note)` hears, once each, what the
     windows of the build that fit gave up."""
     first = _FALLBACK.get()
+    refused = None
     for level in range(first, levels + 1):
         token = _FALLBACK.set(level)
         lower, said = [], {}
@@ -964,6 +965,7 @@ def retry_with_fallbacks(
         except Exception as error:
             if not lower or (ran_out is not None and not ran_out(error)):
                 raise
+            refused = error
             if notes is not None:
                 # the build it said them of is not the one that ships
                 del notes[kept:]
@@ -971,6 +973,14 @@ def retry_with_fallbacks(
             _SAID.reset(saying)
             _LOWER.reset(lowered)
             _FALLBACK.reset(token)
+    if refused is None:
+        # already retried past `levels` by an enclosing retry: built
+        # once, as that retry's level draws it
+        return attempt()
+    # THE RETRIES RAN OUT with a window still above its last
+    # fallback: the build is refused with what refused it last,
+    # never answered with nothing, which reads as a cartridge built
+    raise refused
 
 
 def _clamped(ends, page):

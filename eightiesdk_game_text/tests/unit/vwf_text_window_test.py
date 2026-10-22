@@ -255,6 +255,40 @@ class FallbackRetryTest(TestCase):
             retry_with_fallbacks(attempt, lambda e: False)
 
 
+class RetriesRunOutTest(TestCase):
+    """A build still refused at the last level it may retry is
+    refused, with its own refusal, even when a window has a fallback
+    left below that level: a retry that gives up must never hand the
+    director nothing, which it reported as a cartridge built."""
+
+    def test_the_last_refusal_is_raised_when_the_retries_run_out(self):
+        from types import SimpleNamespace
+
+        from eightiesdk_game_text.window import retry_with_fallbacks
+
+        w = window(messages=('AB A B',), columns=4, rows=3)
+        screen = SimpleNamespace(width=256, height=224)
+        tries = []
+
+        def attempt():
+            w.drawn_for(screen)
+            tries.append(1)
+            raise ValueError(f'sprite bank full, try {len(tries)}')
+
+        with self.assertRaisesRegex(ValueError, 'sprite bank full, try 2'):
+            retry_with_fallbacks(attempt, levels=1)
+        self.assertEqual(2, len(tries))
+
+    def test_inside_a_retry_past_its_levels_it_builds_once(self):
+        from eightiesdk_game_text.window import _FALLBACK, retry_with_fallbacks
+
+        token = _FALLBACK.set(3)
+        try:
+            self.assertEqual('rom', retry_with_fallbacks(lambda: 'rom'))
+        finally:
+            _FALLBACK.reset(token)
+
+
 class RetryNotesTest(TestCase):
     def test_a_failed_attempt_s_port_notes_are_dropped(self):
         from eightiesdk_runtime.port_notes import collecting, compromise
