@@ -157,3 +157,24 @@ class FallbacksChoiceTest(TestCase):
         self.assertTrue(levels)
         for fallback, _note in levels:
             self.assertTrue(fallback.packed)
+
+
+class WidenedForOptionsTest(TestCase):
+    def test_the_fixed_fallback_widens_on_a_screen_with_room(self):
+        from types import SimpleNamespace
+
+        w = TextWindow(
+            column=2,
+            row=0,
+            columns=6,
+            rows=5,
+            border=vwf.BORDER,
+            font=vwf.FONT,
+            messages=('AB',),
+            choice=Choice(options=('BBBB', 'A'), cursor='A', indent=0),
+        )
+        screen = SimpleNamespace(width=80, height=64)
+        fixed = [f for f, _n in w.fallbacks(screen) if not f.packed]
+        self.assertEqual(len(fixed), 1)
+        self.assertEqual(fixed[0].inner_columns, 6)
+        self.assertLessEqual(fixed[0].column + fixed[0].columns, 10)
