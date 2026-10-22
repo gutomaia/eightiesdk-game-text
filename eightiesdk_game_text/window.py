@@ -416,7 +416,20 @@ class TextWindow:
 
     @property
     def lines_per_page(self):
-        return (self.rows - 2) // self.font.rows
+        lines = (self.rows - 2) // self.font.rows
+        return min(lines, self.__dict__.get('_lines_cap', lines))
+
+    def fewer_lines(self):
+        """(b) THIS WINDOW SHOWING ONE LINE FEWER A PAGE, still a glyph a
+        step: a page shows fewer patterns at once, so a console that
+        streams or lends its names needs fewer. Same size on screen."""
+        fewer = copy(self)
+        fewer._lines_cap = self.lines_per_page - 1
+        fewer._rewraps = True
+        for message in fewer.messages:
+            fewer.pages(message)  # options that no longer fit refuse
+        fewer._tiles, fewer._index = fewer._tile_set()
+        return fewer
 
     @property
     def packed(self):
@@ -698,6 +711,22 @@ class TextWindow:
         glyph a step, finished cells a step, then one cell a glyph."""
         fitted = self.fitted_for(screen)
         found = [(fitted, None)]
+        # PORT NOTE (b): fewer lines a page when a console cannot hold a
+        # full page's patterns at once (NES: lent sprite names)
+        if fitted.packed and fitted.lines_per_page > 1:
+            try:
+                fewer = fitted.fewer_lines()
+            except ValueError as error:
+                if 'do not fit' not in str(error):
+                    raise
+            else:
+                found.append(
+                    (
+                        fewer,
+                        f'the window shows {fewer.lines_per_page} lines a '
+                        f'page, not {fitted.lines_per_page}',
+                    )
+                )
         cellwise = _sayable(fitted.revealed_by_cell)
         if cellwise is not None and cellwise is not fitted:
             found.append(
