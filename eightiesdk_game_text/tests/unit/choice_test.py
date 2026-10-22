@@ -15,7 +15,6 @@ from unittest import TestCase
 
 from eightiesdk_game_text.window import (
     Choice,
-    PixelFont,
     TextWindow,
 )
 
