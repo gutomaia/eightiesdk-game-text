@@ -62,13 +62,13 @@ class ChoiceStepsTest(TestCase):
         self.assertEqual(start, w.page_ends[-1])
         self.assertEqual(len(w.steps()), start + 3)
 
-    def test_a_move_redraws_both_option_lines_whole(self):
+    def test_a_move_writes_only_the_cells_that_change(self):
+        """The cursor's cells, on the option it leaves and the one it
+        lands on: a move is a few cells, whatever the options say."""
         w = window()
         move = w.steps()[w.choice_start]
         cells = {(r, c) for r, c, _ in move}
-        inner = range(1, 7)
-        option_rows = (3, 4, 5, 6)
-        self.assertEqual(cells, {(r, c) for r in option_rows for c in inner})
+        self.assertEqual(cells, {(3, 2), (4, 2), (5, 2), (6, 2)})
 
     def test_a_move_puts_the_cursor_on_the_next_option(self):
         w = window()
