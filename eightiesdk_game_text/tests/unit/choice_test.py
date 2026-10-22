@@ -120,3 +120,20 @@ class PackedChoiceTest(TestCase):
             choice=Choice(options=('B', 'A'), cursor='A', indent=1, moves=2),
         )
         self.assertEqual(w.fixed().choice_start + 2, len(w.fixed().steps()))
+
+
+class NarrowChoiceTest(TestCase):
+    def test_options_too_wide_give_up_their_indent_first(self):
+        # inner 6 cells: ' A CD' needs 5 with indent 1, '>' + ' ' + 'CDE'
+        w = window(
+            columns=7,
+            choice=Choice(options=('CDE', 'E'), cursor='A', indent=3),
+        )
+        self.assertEqual(w.pages(w.messages[0])[-1][-2:], ('A CDE', '  E'))
+
+    def test_an_option_wider_than_the_window_is_refused(self):
+        with self.assertRaises(ValueError):
+            window(
+                columns=5,
+                choice=Choice(options=('CDE', 'E'), cursor='A', indent=0),
+            )
