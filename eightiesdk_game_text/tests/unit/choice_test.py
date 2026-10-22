@@ -137,3 +137,23 @@ class NarrowChoiceTest(TestCase):
                 columns=5,
                 choice=Choice(options=('CDE', 'E'), cursor='A', indent=0),
             )
+
+
+class FallbacksChoiceTest(TestCase):
+    def test_a_fallback_that_cannot_say_the_options_is_left_out(self):
+        w = TextWindow(
+            column=0,
+            row=0,
+            columns=6,
+            rows=5,
+            border=vwf.BORDER,
+            font=vwf.FONT,
+            messages=('AB',),
+            # packed: 'A' at x 0, 'BBBB' from x 6 -> 30 px of 32; a cell
+            # a glyph needs 1 + 1 + 4 = 6 cells of 4
+            choice=Choice(options=('BBBB', 'A'), cursor='A', indent=0),
+        )
+        levels = w.fallbacks(None)
+        self.assertTrue(levels)
+        for fallback, _note in levels:
+            self.assertTrue(fallback.packed)
