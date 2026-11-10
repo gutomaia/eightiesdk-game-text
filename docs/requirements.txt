@@ -1,0 +1,6 @@
+sphinx>=8,<9
+furo
+myst-parser
+sphinx-intl
+sphinx-design
+sphinx-copybutton
